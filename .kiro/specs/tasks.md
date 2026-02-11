@@ -795,3 +795,759 @@ Complete testing and deploy to production
 - [ ] Ask the user if questions arise before proceeding
 
 ---
+
+### Task 14: Create React project structure and shared services
+**Phase**: 5 - Validation Layer  
+**Requirement Types**: VR (Validation Requirement), FR (Functional Requirement), UI (UI/UX Requirement)  
+**Team**: @team:frontend @component:frontend-ui @priority:high  
+**Requirements**: All frontend requirements  
+**Figma Reference**: Component Library, Design System
+
+**Description**: Set up React project with Material Design and implement shared services for validation, authentication, registration, and profile management.
+
+**Sub-tasks**:
+- [ ] 14.1 Set up React project with Material-UI (MUI)
+  - **Requirement Type**: UI (UI/UX Requirement)
+  - **Requirements**: All frontend requirements
+  - Initialize React 18+ project with TypeScript
+  - Install Material-UI (MUI) and configure custom theme based on Figma colors
+  - Set up routing module with lazy loading
+  - Configure environment files for API Gateway URLs
+  - Extract design tokens from Figma (colors, typography, spacing)
+  
+- [ ] 14.2 Create ValidationService
+  - **Requirement Type**: VR (Validation Requirement)
+  - **Requirements**: Req 3 (Password), Req 7 (Email), Req 12 (Password), Req 13 (Email), Req 17 (Mandatory Fields), Req 19 (Gender), Req 20 (Age), Req 21 (Email in Profile)
+  - Implement validateEmail(email: string): ValidationResult method
+  - Implement validatePassword(password: string): ValidationResult method
+  - Implement checkPasswordRequirements(password: string): PasswordRequirements method
+  - Implement validateAge(age: number): ValidationResult method
+  - Implement validateMandatoryField(value: string): ValidationResult method
+  - Return {isValid: boolean, errorMessage?: string} for each validator
+  - Match server-side validation logic exactly
+  
+- [ ] 14.3 Create AuthService
+  - **Requirement Type**: FR (Functional Requirement) + SR (Security Requirement)
+  - **Requirements**: Req 2 (Email Registration), Req 4 (Social Login), Req 9 (Successful Login), Req 10 (Invalid Credentials)
+  - Implement register(email: string, password: string): Promise<RegistrationResponse> method
+  - Implement login(email: string, password: string): Promise<AuthResponse> method
+  - Implement logout(): void method
+  - Implement token storage in localStorage with secure practices
+  - Implement isAuthenticated(): boolean method
+  - Implement getToken(): string | null method
+  - Handle HTTP errors and map to user-friendly messages
+  
+- [ ] 14.4 Create OAuth2Service
+  - **Requirement Type**: FR (Functional Requirement) + SR (Security Requirement)
+  - **Requirements**: Req 4 (Social Login Registration)
+  - Implement initiateGoogleLogin(): void method
+  - Implement initiateAmazonLogin(): void method
+  - Implement handleOAuth2Callback(code: string, provider: string): Promise<AuthResponse> method
+  - Handle OAuth2 errors
+  
+- [ ] 14.5 Create ProfileService
+  - **Requirement Type**: FR (Functional Requirement) + DR (Data Requirement)
+  - **Requirements**: Req 15 (View Profile), Req 16 (Display Fields), Req 23 (Save Profile), Req 25 (Email Policy)
+  - Implement getProfile(): Promise<UserProfile> method
+  - Implement updateProfile(profile: UserProfile): Promise<UpdateResponse> method
+  - Implement checkEmailPolicy(): Promise<EmailPolicyResponse> method
+  - Include JWT token in Authorization header for all requests
+  - Handle HTTP errors (401, 403, 404, 500)
+  
+- [ ]* 14.6 Write unit tests for services
+  - **Requirement Type**: VR (Validation Requirement) + FR (Functional Requirement)
+  - **Requirements**: All validation and service requirements
+  - Test ValidationService methods with valid and invalid inputs
+  - Test AuthService with mocked fetch/axios
+  - Test OAuth2Service with mocked fetch/axios
+  - Test ProfileService with mocked fetch/axios
+  - Test error handling and edge cases
+  - Use Jest and React Testing Library
+
+---
+
+### Task 15: Implement RegistrationComponent
+**Phase**: 2 - Registration & Email Verification  
+**Requirement Types**: UI (UI/UX Requirement), FR (Functional Requirement), VR (Validation Requirement), SR (Security Requirement)  
+**Team**: @team:frontend @component:frontend-ui @priority:high  
+**Requirements**: Req 1 (UI), Req 2 (FR+SR), Req 3 (SR+VR), Req 4 (FR+SR), Req 7 (VR)  
+**Figma Reference**: Registration Page - Desktop/Mobile/Tablet, Email registration form, Social login buttons, Password requirements, Error states
+
+**Description**: Implement the registration page component with email registration, social login, and password complexity validation, matching Figma designs pixel-perfect.
+
+**Sub-tasks**:
+- [ ] 15.1 Create component structure and template
+  - **Requirement Type**: UI (UI/UX Requirement)
+  - **Requirements**: Req 1 (Registration Page Access), Req 2 (Email Registration), Req 4 (Social Login)
+  - Create RegistrationComponent with TypeScript class and HTML template
+  - Create registration form with email, password, and confirm password fields using Material-UI (MUI)
+  - Add register button
+  - Add social login buttons for Google and Amazon with branded styling
+  - Add link to login page
+  - Add error message display area matching Figma error component
+  - Apply Material-UI (MUI) styling matching Figma design system
+  - Implement responsive layout for Mobile (375px), Tablet (768px), Desktop (1440px)
+  - Extract exact colors, spacing, typography from Figma Inspect
+  
+- [ ] 15.2 Implement password requirements display
+  - **Requirement Type**: SR (Security Requirement) + VR (Validation Requirement)
+  - **Requirements**: Req 3 (Registration Password Complexity)
+  - Display password complexity requirements in real-time
+  - Show checkmarks for met requirements (green)
+  - Show X marks for unmet requirements (gray)
+  - Requirements: min 8 chars, uppercase, lowercase, digit, special char
+  - Update display as user types
+  
+- [ ] 15.3 Implement form validation logic
+  - **Requirement Type**: VR (Validation Requirement) + SR (Security Requirement)
+  - **Requirements**: Req 3 (Password Complexity), Req 7 (Email Format)
+  - Add reactive form with useState
+  - Implement real-time email format validation using ValidationService
+  - Implement real-time password complexity validation using ValidationService
+  - Validate password and confirm password match
+  - Display inline error messages below fields matching Figma error states
+  - Clear error messages when user corrects input
+  
+- [ ] 15.4 Implement email registration submission logic
+  - **Requirement Type**: FR (Functional Requirement) + SR (Security Requirement)
+  - **Requirements**: Req 2 (Email Registration), Req 5 (Duplicate Account Prevention)
+  - Call AuthService.register on form submit
+  - Handle successful registration: display success message, redirect to login
+  - Handle duplicate email error: display "An account with this email already exists"
+  - Handle validation errors: display appropriate error messages
+  - Show loading indicator during API call (spinner in button)
+  - Disable form during submission to prevent double-submit
+  
+- [ ] 15.5 Implement social login functionality
+  - **Requirement Type**: FR (Functional Requirement) + SR (Security Requirement)
+  - **Requirements**: Req 4 (Social Login Registration)
+  - Call OAuth2Service.initiateGoogleLogin on Google button click
+  - Call OAuth2Service.initiateAmazonLogin on Amazon button click
+  - Handle OAuth2 callback and token storage
+  - Redirect to home page after successful social login
+  - Handle OAuth2 errors
+  
+- [ ]* 15.6 Write unit tests for RegistrationComponent
+  - **Requirement Type**: UI (UI/UX Requirement) + FR (Functional Requirement) + VR (Validation Requirement)
+  - **Requirements**: Req 1, Req 2, Req 3, Req 4, Req 7
+  - Test form validation (email format, password complexity, password match)
+  - Test password requirements display updates in real-time
+  - Test successful registration flow
+  - Test duplicate email error handling
+  - Test social login button clicks
+  - Test loading state during API call
+  - Use Jest and React Testing Library with render from React Testing Library
+
+---
+
+### Task 16: Implement LoginComponent
+**Phase**: 4 - Core Authentication  
+**Requirement Types**: UI (UI/UX Requirement), FR (Functional Requirement), VR (Validation Requirement), SR (Security Requirement)  
+**Team**: @team:frontend @component:frontend-ui @priority:high  
+**Requirements**: Req 8 (UI), Req 9 (FR), Req 10 (FR), Req 11 (VR), Req 12 (SR+VR), Req 13 (VR), Req 14 (SR), Req 6.3 (FR+SR)  
+**Figma Reference**: Login Page - Desktop/Mobile/Tablet, Error states, Loading state, Account locked state, Unverified email state
+
+**Description**: Implement the login page component with form validation and authentication logic, matching Figma designs pixel-perfect.
+
+**Sub-tasks**:
+- [ ] 16.1 Create component structure and template
+  - **Requirement Type**: UI (UI/UX Requirement)
+  - **Requirements**: Req 8 (Login Page Access), Req 9 (Successful Login), Req 10 (Invalid Credentials), Req 11 (Mandatory Fields)
+  - Create LoginComponent with TypeScript class and HTML template
+  - Create login form with email and password fields using Material-UI (MUI)
+  - Add login button with disabled state
+  - Add link to registration page
+  - Add "Forgot Password" link (optional)
+  - Add error message display area matching Figma error component
+  - Apply Material-UI (MUI) styling matching Figma design system
+  - Implement responsive layout for Mobile (375px), Tablet (768px), Desktop (1440px)
+  - Extract exact colors, spacing, typography from Figma Inspect
+  
+- [ ] 16.2 Implement form validation logic
+  - **Requirement Type**: VR (Validation Requirement) + SR (Security Requirement)
+  - **Requirements**: Req 11 (Mandatory Fields), Req 12 (Password Format), Req 13 (Email Format)
+  - Add reactive form with useState
+  - Implement real-time email format validation using ValidationService
+  - Implement real-time password complexity validation using ValidationService
+  - Disable login button when email or password field is empty (Req 11)
+  - Display inline error messages below fields matching Figma error states
+  - Clear error messages when user corrects input
+  
+- [ ] 16.3 Implement login submission logic
+  - **Requirement Type**: FR (Functional Requirement) + SR (Security Requirement)
+  - **Requirements**: Req 9 (Successful Login), Req 10 (Invalid Credentials), Req 14 (Account Locking), Req 6.3 (Unverified Email)
+  - Call AuthService.login on form submit
+  - Handle successful login: store JWT token securely, redirect to home page
+  - Handle authentication errors: display "Invalid username or password" message
+  - Handle account locked errors: display "Account is locked. Please try again after 30 minutes." message
+  - Handle unverified email errors: display "Please verify your email address before logging in" message
+  - Show loading indicator during API call (spinner in button)
+  - Disable form during submission to prevent double-submit
+  
+- [ ]* 16.4 Write property test for login button disabled state
+  - **Requirement Type**: VR (Validation Requirement)
+  - **Property 7**: Login button disabled state
+  - **Validates**: Req 11 (Mandatory Fields Validation)
+  - Test with randomly generated combinations of empty/non-empty email and password
+  - Verify button is disabled if and only if at least one field is blank
+  - Minimum 100 iterations
+  
+- [ ]* 16.5 Write unit tests for LoginComponent
+  - **Requirement Type**: UI (UI/UX Requirement) + FR (Functional Requirement) + VR (Validation Requirement)
+  - **Requirements**: Req 8, Req 9, Req 10, Req 11, Req 12, Req 13, Req 14, Req 6.3
+  - Test form validation (email format, password complexity)
+  - Test button disabled state when fields are empty
+  - Test successful login flow (token storage, navigation)
+  - Test error handling (invalid credentials, account locked, unverified email)
+  - Test loading state during API call
+  - Use Jest and React Testing Library with render from React Testing Library
+
+---
+
+### Task 17: Implement ProfileComponent
+**Phase**: 6 - Profile Management  
+**Requirement Types**: UI (UI/UX Requirement), VR (Validation Requirement), FR (Functional Requirement), BR (Business Rule), DR (Data Requirement)  
+**Team**: @team:frontend @component:frontend-ui @priority:high  
+**Requirements**: Req 15-25 (all profile requirements)  
+**Figma Reference**: Profile Management Page - Desktop/Mobile/Tablet, Form layout, Validation states, Success message
+
+**Description**: Implement the profile management page component with all fields, validation, and save/cancel functionality, matching Figma designs pixel-perfect.
+
+**Sub-tasks**:
+- [ ] 17.1 Create component structure and template
+  - **Requirement Type**: UI (UI/UX Requirement)
+  - **Requirements**: Req 15 (View Profile), Req 16 (Display Fields), Req 18 (Title), Req 19 (Gender), Req 22 (Preferences)
+  - Create ProfileComponent with TypeScript class and HTML template
+  - Create profile form with all 8 fields using Material-UI (MUI):
+    - Title dropdown (Mr, Ms, Mrs, Dr) - `<Material-UI select>`
+    - First Name text input (required) - `<Material-UI form-field>`
+    - Last Name text input (required) - `<Material-UI form-field>`
+    - Gender radio buttons (Male, Female, Other) (required) - `<Material-UI radio-group>`
+    - Age numeric input (range: 18-120) - `<Material-UI form-field type="number">`
+    - Email text input (required, conditionally read-only) - `<Material-UI form-field>`
+    - Address textarea - `TextField multiline`
+    - Preferences checkboxes (required, at least one) - `<Material-UI checkbox>`
+  - Add Save and Cancel buttons matching Figma action buttons
+  - Add error message display areas for each field
+  - Apply Material-UI (MUI) styling matching Figma design system
+  - Implement responsive layout: 2-column grid on desktop, single column on mobile/tablet
+  - Extract exact colors, spacing, typography from Figma Inspect
+  
+- [ ] 17.2 Implement profile loading logic
+  - **Requirement Type**: UI (UI/UX Requirement) + DR (Data Requirement) + BR (Business Rule)
+  - **Requirements**: Req 15 (View Profile), Req 16 (Display Fields), Req 25 (Read Only Email)
+  - Call ProfileService.getProfile on component init (useEffect hook)
+  - Populate form with retrieved profile data
+  - Store original profile data in originalProfile property for cancel functionality
+  - Call ProfileService.checkEmailPolicy to determine if email is read-only
+  - Set email field read-only if policy restricts modification (add lock icon)
+  - Show loading indicator while fetching data
+  
+- [ ] 17.3 Implement form validation logic
+  - **Requirement Type**: VR (Validation Requirement) + BR (Business Rule)
+  - **Requirements**: Req 17 (Mandatory Fields), Req 19 (Gender), Req 20 (Age), Req 21 (Email), Req 22 (Preferences)
+  - Add reactive form with useState and validators
+  - Validate mandatory fields: firstName, lastName, email, gender (Validators.required)
+  - Validate gender selection: display "Gender selection is mandatory" if blank
+  - Validate email format using ValidationService
+  - Validate age range 18-120 using ValidationService
+  - Validate at least one preference selected using custom validator
+  - Display inline error messages below each field matching Figma error states
+  - Clear error messages when user corrects input
+  - Disable save button when form is invalid
+  
+- [ ] 17.4 Implement save functionality
+  - **Requirement Type**: FR (Functional Requirement) + DR (Data Requirement)
+  - **Requirements**: Req 23 (Save Profile)
+  - Call ProfileService.updateProfile on save button click
+  - Handle successful save: display "Profile updated successfully" toast notification (green, top-right)
+  - Handle validation errors: display field-specific error messages
+  - Show loading indicator during API call (spinner in button)
+  - Disable form during submission to prevent double-submit
+  - Update originalProfile with saved data after successful save
+  
+- [ ] 17.5 Implement cancel functionality
+  - **Requirement Type**: FR (Functional Requirement)
+  - **Requirements**: Req 24 (Cancel Changes)
+  - Revert form to originalProfile data on cancel button click
+  - Clear any error messages
+  - Reset form validation state
+  - No API call needed (client-side only)
+  
+- [ ]* 17.6 Write property test for cancel discards changes
+  - **Requirement Type**: FR (Functional Requirement)
+  - **Property 16**: Cancel discards changes
+  - **Validates**: Req 24 (Cancel Changes)
+  - Test with randomly generated profile modifications
+  - Verify cancel button reverts all fields to original values
+  - Minimum 100 iterations
+  
+- [ ]* 17.7 Write unit tests for ProfileComponent
+  - **Requirement Type**: UI (UI/UX Requirement) + VR (Validation Requirement) + FR (Functional Requirement)
+  - **Requirements**: Req 15-25 (all profile requirements)
+  - Test profile loading and form population
+  - Test form validation for all fields
+  - Test save functionality (success and error cases)
+  - Test cancel functionality (revert to original data)
+  - Test email read-only based on policy
+  - Test mandatory field validation
+  - Test age range validation
+  - Test preferences validation (at least one selected)
+  - Use Jest and React Testing Library with render from React Testing Library
+
+---
+
+### Task 18: Configure routing and navigation
+**Phase**: 4 - Core Authentication  
+**Requirement Types**: UI (UI/UX Requirement), FR (Functional Requirement), SR (Security Requirement)  
+**Team**: @team:frontend @component:frontend-routing  
+**Requirements**: Req 1 (UI), Req 8 (UI), Req 9 (FR), Req 15 (UI)
+
+**Description**: Set up React Router with authentication guards and navigation components.
+
+**Sub-tasks**:
+- [ ] 18.1 Set up React Router
+  - **Requirement Type**: UI (UI/UX Requirement) + SR (Security Requirement)
+  - **Requirements**: Req 1 (Registration Page Access), Req 8 (Login Page Access), Req 9 (Successful Login), Req 15 (View Profile Page)
+  - Define routes for registration page (/register), login page (/login), and profile page (/profile)
+  - Implement AuthGuard route guard for authenticated routes
+  - Configure redirect to /login for unauthenticated users
+  - Configure redirect to /profile after successful login/registration
+  - Set up lazy loading for feature modules
+  
+- [ ] 18.2 Create navigation component
+  - **Requirement Type**: UI (UI/UX Requirement) + FR (Functional Requirement)
+  - **Requirements**: Req 9 (Successful Login - logout flow)
+  - Add navigation bar with Material-UI (MUI) toolbar
+  - Show navigation only for authenticated users (use conditional rendering with AuthService.isAuthenticated())
+  - Add logout button that calls AuthService.logout()
+  - Redirect to /login after logout
+  - Match Figma navigation design
+  
+- [ ]* 18.3 Write unit tests for routing and guards
+  - **Requirement Type**: UI (UI/UX Requirement) + SR (Security Requirement)
+  - **Requirements**: Req 1, Req 8, Req 9, Req 15
+  - Test AuthGuard redirects unauthenticated users to /login
+  - Test AuthGuard allows authenticated users to access /profile
+  - Test navigation component shows/hides based on authentication state
+  - Test logout functionality
+  - Use Jest and React Testing Library with MemoryRouter from react-router-dom
+
+---
+
+### Task 19: Create deployment pipeline
+**Phase**: 7 - Testing & Deployment  
+**Requirement Types**: PR (Performance Requirement)  
+**Team**: @team:devops @component:devops-cicd  
+**Requirements**: All requirements (deployment and monitoring)
+
+**Description**: Set up CI/CD pipeline for automated build, test, and deployment.
+
+**Sub-tasks**:
+- [ ] 19.1 Configure build pipeline
+  - **Requirement Type**: PR (Performance Requirement)
+  - **Requirements**: All requirements (deployment)
+  - Set up GitHub Actions or Jenkins pipeline
+  - Configure Java build with Maven (per Java conventions)
+  - Configure React build with npm
+  - Run unit tests and property tests
+  - Generate code coverage reports (target 70% minimum)
+  - Run SonarQube analysis for code quality
+  - Fail build if coverage < 70% or quality gate fails
+  
+- [ ] 19.2 Configure Lambda deployment
+  - **Requirement Type**: PR (Performance Requirement)
+  - **Requirements**: All backend requirements
+  - Package Lambda functions with dependencies using Maven
+  - Deploy Lambda functions to AWS using AWS CDK
+  - Update Lambda environment variables (DB_SECRET_ARN, JWT_SECRET_ARN, SES_FROM_EMAIL, etc.)
+  - Deploy Lambda layer with shared utilities
+  - Run smoke tests after deployment
+  
+- [ ] 19.3 Configure frontend deployment
+  - **Requirement Type**: PR (Performance Requirement)
+  - **Requirements**: All frontend requirements
+  - Build React application for production (npm run build)
+  - Deploy to S3 bucket with static website hosting
+  - Configure CloudFront distribution for CDN
+  - Configure environment-specific API Gateway URLs
+  - Invalidate CloudFront cache after deployment
+  
+- [ ] 19.4 Set up monitoring and alerts
+  - **Requirement Type**: PR (Performance Requirement)
+  - **Requirements**: All requirements (monitoring)
+  - Configure CloudWatch alarms for Lambda errors (threshold: > 5 errors in 5 minutes)
+  - Set up API Gateway monitoring (4xx, 5xx errors, latency)
+  - Configure RDS performance monitoring (CPU, connections, slow queries)
+  - Monitor SES email delivery metrics
+  - Create CloudWatch dashboard for system health
+  - Set up SNS notifications for critical alerts
+  - Configure log retention policies (30 days)
+
+---
+
+### Task 20: Integration testing and validation
+**Phase**: 7 - Testing & Deployment  
+**Requirement Types**: All requirement types  
+**Team**: @team:qa @component:qa-testing  
+**Requirements**: All requirements
+
+**Description**: Perform comprehensive integration and end-to-end testing to validate the entire system.
+
+**Sub-tasks**:
+- [ ]* 20.1 Write end-to-end tests for registration flow
+  - **Requirement Type**: FR (Functional Requirement) + SR (Security Requirement) + VR (Validation Requirement)
+  - **Requirements**: Req 1 (Registration Page), Req 2 (Email Registration), Req 3 (Password Complexity), Req 4 (Social Login), Req 5 (Duplicate Prevention), Req 6 (Email Verification), Req 7 (Email Format)
+  - Test complete registration flow from UI to database
+  - Test successful registration with valid data
+  - Test duplicate email detection
+  - Test password complexity validation
+  - Test email format validation
+  - Test email verification flow
+  - Test social login with Google and Amazon
+  - Use Cypress or Protractor for E2E tests
+  
+- [ ]* 20.2 Write end-to-end tests for authentication flow
+  - **Requirement Type**: FR (Functional Requirement) + SR (Security Requirement) + VR (Validation Requirement)
+  - **Requirements**: Req 8 (Login Page), Req 9 (Successful Login), Req 10 (Invalid Credentials), Req 11 (Mandatory Fields), Req 14 (Account Locking), Req 6.3 (Unverified Email)
+  - Test complete login flow from UI to database
+  - Test successful login with valid credentials (redirect to home)
+  - Test invalid credentials display error message
+  - Test login button disabled when fields are empty
+  - Test account locking after 5 failed attempts
+  - Test account unlocks after 30 minutes
+  - Test unverified email prevention
+  - Test logout functionality
+  - Use Cypress or Protractor for E2E tests
+  
+- [ ]* 20.3 Write end-to-end tests for profile management
+  - **Requirement Type**: UI (UI/UX Requirement) + VR (Validation Requirement) + FR (Functional Requirement) + BR (Business Rule)
+  - **Requirements**: Req 15-25 (all profile requirements)
+  - Test profile retrieval and display of all 8 fields
+  - Test profile update with valid data (success message displayed)
+  - Test validation errors for invalid data (each field)
+  - Test mandatory field validation (firstName, lastName, email, gender)
+  - Test age range validation (18-120)
+  - Test email format validation
+  - Test preferences validation (at least one selected)
+  - Test cancel functionality (revert to original data)
+  - Test email policy enforcement (read-only email field)
+  - Use Cypress or Protractor for E2E tests
+  
+- [ ]* 20.4 Perform security testing
+  - **Requirement Type**: SR (Security Requirement)
+  - **Requirements**: All security requirements
+  - Test JWT token validation (expired token, invalid signature, missing token)
+  - Test SQL injection prevention (parameterized queries)
+  - Test XSS prevention (React sanitization)
+  - Test CSRF protection (CSRF tokens)
+  - Verify HTTPS enforcement for all API calls
+  - Verify secure token storage (localStorage with HttpOnly cookies recommended)
+  - Test password hashing (BCrypt, never plain text)
+  - Test account locking mechanism (5 failures, 30 minutes)
+  - Test API Gateway rate limiting (5-10 req/s for public endpoints)
+  - Test OAuth2 security (token exchange, state parameter)
+  - Use OWASP ZAP or Burp Suite for security scanning
+  
+- [ ]* 20.5 Perform performance testing
+  - **Requirement Type**: PR (Performance Requirement)
+  - **Requirements**: All requirements (performance)
+  - Test Lambda cold start times (target: < 3 seconds)
+  - Test API Gateway throughput (concurrent requests)
+  - Test database query performance (target: < 100ms p95)
+  - Test concurrent user load (100+ concurrent users)
+  - Test API response times (target: < 500ms p95)
+  - Test frontend page load times (target: < 2 seconds)
+  - Test email delivery times (target: < 5 seconds)
+  - Use Artillery or Gatling for load testing
+  - Monitor CloudWatch metrics during tests
+
+---
+
+### Task 21: Final checkpoint - Production readiness validation
+**Phase**: 7 - Testing & Deployment  
+**Requirement Types**: All requirement types  
+**Team**: @team:backend @team:frontend @team:devops @team:qa  
+**Requirements**: All requirements
+
+**Description**: Final validation that the system is ready for production deployment.
+
+**Validation Checklist**:
+- [ ] Run all unit tests and property tests (100% pass rate required)
+- [ ] Run all integration tests and E2E tests (100% pass rate required)
+- [ ] Verify code coverage meets 70% minimum (per Java conventions)
+- [ ] Review CloudWatch logs for any errors or warnings
+- [ ] Perform manual testing of critical flows (registration, email verification, social login, login, profile management)
+- [ ] Verify all 25 requirements are implemented and tested
+- [ ] Verify all 16 correctness properties are validated
+- [ ] Verify Figma designs match implementation (pixel-perfect)
+- [ ] Verify responsive layouts work on Mobile, Tablet, Desktop
+- [ ] Verify WCAG AA accessibility compliance
+- [ ] Verify security best practices are followed
+- [ ] Verify performance targets are met (Lambda < 3s, API < 500ms, page load < 2s, email < 5s)
+- [ ] Verify monitoring and alerts are configured
+- [ ] Verify deployment pipeline works end-to-end
+- [ ] Verify SES email delivery is working
+- [ ] Verify OAuth2 integration with Google and Amazon is working
+- [ ] Ensure all tests pass, ask the user if questions arise before production deployment
+
+---
+
+## Requirement Type to Task Mapping
+
+This section provides a comprehensive mapping of requirement types to the tasks that implement them.
+
+### Functional Requirements (FR) - Core business functionality
+
+| Requirement | Description | Implementing Tasks |
+|-------------|-------------|-------------------|
+| Req 2 | Email Registration | Task 3.3 (JWT utility), Task 4.1 (UserRepository), Task 5 (RegistrationHandler), Task 12.2 (API Gateway), Task 14.3 (AuthService), Task 15 (RegistrationComponent), Task 18.1 (Routing) |
+| Req 4 | Social Login Registration | Task 3.5 (OAuth2 utility), Task 4.1 (UserRepository), Task 7 (OAuth2Handler), Task 12.4 (API Gateway), Task 14.4 (OAuth2Service), Task 15.5 (RegistrationComponent) |
+| Req 6 | Email Verification | Task 3.6 (Email service), Task 4.1 (UserRepository), Task 5.5 (Send email), Task 6 (EmailVerificationHandler), Task 12.3 (API Gateway) |
+| Req 9 | Successful Login | Task 3.3 (JWT utility), Task 4.1 (UserRepository), Task 8 (AuthLoginHandler), Task 11.1 (AuthLogoutHandler), Task 12.5-12.6 (API Gateway), Task 14.3 (AuthService), Task 16 (LoginComponent), Task 18 (Routing) |
+| Req 10 | Invalid Credentials | Task 3.10 (Exceptions), Task 4.1 (UserRepository), Task 8 (AuthLoginHandler), Task 12.5 (API Gateway), Task 14.3 (AuthService), Task 16 (LoginComponent) |
+| Req 23 | Save Profile | Task 4.1 (UserRepository), Task 10 (UpdateProfileHandler), Task 12.7 (API Gateway), Task 14.5 (ProfileService), Task 17 (ProfileComponent) |
+| Req 24 | Cancel Changes | Task 17.5 (ProfileComponent cancel functionality) |
+
+### UI/UX Requirements (UI) - User interface and experience
+
+| Requirement | Description | Implementing Tasks | Figma Reference |
+|-------------|-------------|-------------------|-----------------|
+| Req 1 | Registration Page Access | Task 15.1 (RegistrationComponent structure), Task 18.1 (Routing) | Registration Page - Desktop/Mobile/Tablet |
+| Req 8 | Login Page Access | Task 16.1 (LoginComponent structure), Task 18.1 (Routing) | Login Page - Desktop/Mobile/Tablet |
+| Req 15 | View Profile Page | Task 9 (GetProfileHandler), Task 17.1-17.2 (ProfileComponent), Task 18.1 (Routing) | Profile Management Page |
+| Req 16 | Display Profile Fields | Task 2.1-2.2 (Database schema), Task 9 (GetProfileHandler), Task 17.1 (ProfileComponent) | Profile - Form Fields |
+| Req 18 | Title Field Behavior | Task 2.1 (Database), Task 17.1 (ProfileComponent) | Profile - Title dropdown |
+| Req 19 | Gender Field Validation | Task 2.1 (Database), Task 10.2 (Validation), Task 17.1-17.3 (ProfileComponent) | Profile - Gender radio buttons |
+| Req 22 | Preferences Selection | Task 2.2 (Database), Task 10.2 (Validation), Task 17.1-17.3 (ProfileComponent) | Profile - Preferences checkboxes |
+| Req 25 | Read Only Email Rule | Task 11.2 (GetEmailPolicyHandler), Task 12.8 (API Gateway), Task 14.5 (ProfileService), Task 17.2 (ProfileComponent) | Profile - Email read-only state |
+
+### Validation Requirements (VR) - Input validation and data integrity
+
+| Requirement | Description | Implementing Tasks | Property Tests |
+|-------------|-------------|-------------------|----------------|
+| Req 3 | Registration Password Complexity | Task 3.2 (BCrypt), Task 3.4 (Validators), Task 5.2 (RegistrationHandler), Task 14.2 (ValidationService), Task 15.2-15.3 (RegistrationComponent) | Task 3.8 (Property 2) |
+| Req 7 | Registration Email Format Validation | Task 3.4 (Validators), Task 5.2 (RegistrationHandler), Task 14.2 (ValidationService), Task 15.3 (RegistrationComponent) | Task 3.7 (Property 4) |
+| Req 11 | Mandatory Fields Validation | Task 3.4 (Validators), Task 14.2 (ValidationService), Task 16.2 (LoginComponent) | Task 16.4 (Property 7) |
+| Req 12 | Password Format Validation | Task 3.2 (BCrypt), Task 3.4 (Validators), Task 14.2 (ValidationService), Task 16.2 (LoginComponent) | Task 3.8 (Property 2) |
+| Req 13 | Email Format Validation | Task 3.4 (Validators), Task 14.2 (ValidationService), Task 16.2 (LoginComponent) | Task 3.7 (Property 4) |
+| Req 17 | Mandatory Profile Fields | Task 3.4 (Validators), Task 10.2 (UpdateProfileHandler), Task 17.3 (ProfileComponent) | Task 10.4 (Property 11) |
+| Req 19 | Gender Field Validation | Task 10.2 (UpdateProfileHandler), Task 17.3 (ProfileComponent) | Task 10.4 (Property 11) |
+| Req 20 | Age Validation | Task 3.4 (Validators), Task 10.2 (UpdateProfileHandler), Task 17.3 (ProfileComponent) | Task 3.9 (Property 12) |
+| Req 21 | Email Validation in Profile | Task 3.4 (Validators), Task 10.2 (UpdateProfileHandler), Task 17.3 (ProfileComponent) | Task 3.7 (Property 4) |
+| Req 22 | Preferences Selection | Task 3.4 (Validators), Task 10.2 (UpdateProfileHandler), Task 17.3 (ProfileComponent) | Task 10.5 (Property 14) |
+
+### Security Requirements (SR) - Authentication and security controls
+
+| Requirement | Description | Implementing Tasks | Security Measures |
+|-------------|-------------|-------------------|-------------------|
+| Req 2 | Email Registration | Task 3.2 (BCrypt hashing), Task 5.4 (RegistrationHandler) | BCrypt with salt rounds = 10, never store plain text |
+| Req 3 | Registration Password Complexity | Task 3.2 (BCrypt hashing), Task 5.2 (RegistrationHandler) | Password complexity validation |
+| Req 4 | Social Login Registration | Task 3.5 (OAuth2 utility), Task 7 (OAuth2Handler) | OAuth2 authentication with Google and Amazon |
+| Req 5 | Duplicate Account Prevention | Task 4.1 (UserRepository), Task 5.3 (RegistrationHandler) | Database unique constraint + application check |
+| Req 6 | Email Verification | Task 3.6 (Email service), Task 6 (EmailVerificationHandler) | Email verification token with 24-hour expiry |
+| Req 12 | Password Format Validation | Task 3.2 (BCrypt hashing), Task 8.2 (AuthLoginHandler) | BCrypt password verification |
+| Req 14 | Account Locking | Task 2.3 (login_attempts table), Task 4.2 (LoginAttemptRepository), Task 8.3 (AuthLoginHandler) | Lock after 5 failures for 30 minutes |
+
+**Additional Security Measures**:
+- JWT token authentication (Task 3.3, 12.9)
+- API Gateway rate limiting (Task 12.2: 5 req/s for registration, Task 12.5: 10 req/s for login)
+- HTTPS enforcement (Task 12.1)
+- SQL injection prevention with parameterized queries (Task 4.1, 4.2)
+- XSS prevention with React sanitization (Task 14.1)
+- CSRF protection (Task 12.1)
+- Secrets Manager for credentials (Task 1.4, 3.1)
+- CloudWatch logging for security events (Task 1.6, 5.4, 6.2, 7.4, 8.3)
+
+### Data Requirements (DR) - Data storage and management
+
+| Requirement | Description | Implementing Tasks | Database Tables |
+|-------------|-------------|-------------------|-----------------|
+| Req 2 | Email Registration | Task 2.1 (Database schema), Task 5.4 (RegistrationHandler) | users (Customer_Identity) |
+| Req 16 | Display Profile Fields | Task 2.1-2.2 (Database schema), Task 9 (GetProfileHandler) | users, user_preferences |
+| Req 23 | Save Profile | Task 2.1-2.2 (Database schema), Task 10.3 (UpdateProfileHandler) | users, user_preferences |
+
+**Database Schema**:
+- users table: id, title, first_name, last_name, gender, age, email, password_hash, address, account_locked, locked_until, email_verified, verification_token, verification_token_expiry, auth_provider, provider_id, created_at, updated_at
+- user_preferences table: user_id, preference
+- login_attempts table: id, email, timestamp, successful, ip_address
+- token_blacklist table: id, token_hash, expiry, created_at
+
+### Business Rules (BR) - Business logic and policies
+
+| Requirement | Description | Implementing Tasks | Configuration |
+|-------------|-------------|-------------------|---------------|
+| Req 5 | Duplicate Account Prevention | Task 5.3 (RegistrationHandler) | Database unique constraint + application-level check |
+| Req 17 | Mandatory Profile Fields | Task 10.2 (UpdateProfileHandler validation) | Hard-coded validation rules |
+| Req 20 | Age Validation | Task 10.2 (UpdateProfileHandler validation) | Age range: 18-120 |
+| Req 25 | Read Only Email Rule | Task 11.2 (GetEmailPolicyHandler) | Environment variable: EMAIL_MODIFICATION_ALLOWED |
+
+### Performance Requirements (PR) - System performance
+
+| Requirement | Description | Implementing Tasks | Performance Targets |
+|-------------|-------------|-------------------|---------------------|
+| Infrastructure | Scalability and performance | Task 1 (AWS infrastructure), Task 12 (API Gateway), Task 19 (Deployment) | Lambda cold start < 3s, API response < 500ms p95, Page load < 2s, Email delivery < 5s |
+
+---
+
+## Property-Based Tests Mapping
+
+All property-based tests validate universal correctness properties across randomly generated inputs (minimum 100 iterations each).
+
+| Property | Description | Validates Requirements | Implementing Task |
+|----------|-------------|----------------------|-------------------|
+| Property 1 | Unique email registration | Req 2.3, 5.2 (Duplicate Email Prevention) | Task 5.6 |
+| Property 2 | Password complexity validation during registration | Req 3 (Registration Password Complexity) | Task 3.8 |
+| Property 3 | Email verification requirement | Req 6.3 (Unverified Email Login Prevention) | Task 6.3 |
+| Property 4 | Email format validation during registration | Req 7 (Registration Email Format) | Task 3.7 |
+| Property 5 | Valid credentials authenticate successfully | Req 9 (Successful Login) | Task 8.5 |
+| Property 6 | Invalid credentials return error message | Req 10 (Invalid Credentials) | Task 8.6 |
+| Property 7 | Login button disabled state | Req 11 (Mandatory Fields) | Task 16.4 |
+| Property 8 | Password complexity validation during login | Req 12 (Password Format) | Task 3.8 |
+| Property 9 | Email format validation during login | Req 13 (Email Format) | Task 3.7 |
+| Property 10 | Account locking after failed attempts | Req 14 (Account Locking) | Task 8.7 |
+| Property 11 | Mandatory profile fields validation | Req 17, 19 (Mandatory Fields, Gender) | Task 10.4 |
+| Property 12 | Age range validation | Req 20 (Age Validation) | Task 3.9 |
+| Property 13 | Email format validation in profile | Req 21 (Email in Profile) | Task 3.7 |
+| Property 14 | Preferences selection validation | Req 22 (Preferences) | Task 10.5 |
+| Property 15 | Profile save round-trip with success message | Req 23 (Save Profile) | Task 10.6 |
+| Property 16 | Cancel discards changes | Req 24 (Cancel Changes) | Task 17.6 |
+
+---
+
+## Task Dependencies and Execution Order
+
+### Phase 1: Infrastructure & Security (Week 1)
+**Critical Path**: Task 1 → Task 2 → Task 3 → Task 4
+
+1. Task 1: AWS infrastructure (no dependencies)
+2. Task 2: Database schema (depends on Task 1)
+3. Task 3: Lambda utilities (depends on Task 1, 2)
+4. Task 4: Repository classes (depends on Task 2, 3)
+
+### Phase 2: Registration & Email Verification (Week 2)
+**Critical Path**: Task 5 → Task 6 → Task 12 → Task 13
+
+5. Task 5: RegistrationHandler (depends on Task 3, 4)
+6. Task 6: EmailVerificationHandler (depends on Task 3, 4)
+7. Task 12: API Gateway (depends on Task 5, 6, 7, 8, 11)
+8. Task 13: Backend checkpoint (depends on Task 5, 6, 12)
+
+### Phase 3: Social Login Integration (Week 3)
+**Critical Path**: Task 7 → Task 12
+
+9. Task 7: OAuth2Handler (depends on Task 3, 4)
+10. Task 12: API Gateway OAuth2 endpoints (depends on Task 7)
+
+### Phase 4: Core Authentication (Week 4)
+**Critical Path**: Task 8 → Task 12 → Task 13 → Task 14 → Task 16 → Task 18
+
+11. Task 8: AuthLoginHandler (depends on Task 3, 4)
+12. Task 12: API Gateway login endpoints (depends on Task 8)
+13. Task 13: Backend checkpoint (depends on Task 8, 12)
+14. Task 14: React services (depends on Task 13)
+15. Task 16: LoginComponent (depends on Task 14)
+16. Task 18: Routing (depends on Task 15, 16)
+
+### Phase 5: Validation Layer (Week 5)
+**Parallel Execution**: Task 3.4-3.9 (validation utilities and property tests)
+
+- Can be executed in parallel with Phase 2-4 tasks
+- Property tests validate validation logic
+
+### Phase 6: Profile Management (Week 6)
+**Critical Path**: Task 9 → Task 10 → Task 11 → Task 17
+
+17. Task 9: GetProfileHandler (depends on Task 4)
+18. Task 10: UpdateProfileHandler (depends on Task 3, 4)
+19. Task 11: Supporting functions (depends on Task 3)
+20. Task 17: ProfileComponent (depends on Task 9, 10, 11, 14)
+
+### Phase 7: Testing & Deployment (Week 7)
+**Critical Path**: Task 19 → Task 20 → Task 21
+
+21. Task 19: Deployment pipeline (depends on all implementation tasks)
+22. Task 20: Integration testing (depends on Task 19)
+23. Task 21: Final checkpoint (depends on Task 20)
+
+---
+
+## Notes
+
+- **Optional Tasks**: Tasks marked with `*` are optional and can be skipped for faster MVP delivery
+- **Test Coverage**: Target 70% minimum code coverage (per Java conventions)
+- **Property Tests**: Minimum 100 iterations per property test
+- **Figma Compliance**: All UI components must match Figma designs pixel-perfect
+- **Security**: Follow OWASP security best practices
+- **Logging**: Use SLF4J for all backend logging (per Java conventions)
+- **REST Standards**: Follow proper HTTP status codes and versioning
+- **REXX Modernization**: Part of REXX to Java & React modernization initiative
+- **Email Service**: AWS SES for email verification
+- **OAuth2**: Google and Amazon OAuth2 integration
+
+---
+
+## Success Criteria
+
+### Functional Completeness
+- [ ] All 25 requirements implemented and tested
+- [ ] All 16 correctness properties validated with property-based tests
+- [ ] All functional flows work end-to-end (registration, email verification, social login, login, profile management)
+- [ ] Email verification flow working with SES
+- [ ] OAuth2 integration working with Google and Amazon
+
+### Quality Metrics
+- [ ] Code coverage >= 70% (per Java conventions)
+- [ ] All property tests pass with 100+ iterations
+- [ ] All unit tests pass (100% pass rate)
+- [ ] No critical or high severity bugs
+- [ ] SonarQube quality gate passed
+
+### UI/UX Compliance
+- [ ] Pixel-perfect match with Figma designs
+- [ ] All responsive breakpoints implemented (Mobile 375px, Tablet 768px, Desktop 1440px)
+- [ ] All interactive states implemented (hover, focus, active, disabled, error)
+- [ ] Password requirements displayed in real-time during registration
+- [ ] Social login buttons match brand guidelines
+- [ ] WCAG AA accessibility compliance verified
+
+### Security Compliance
+- [ ] Password hashing with BCrypt implemented
+- [ ] Account locking after 5 failed attempts working
+- [ ] Email verification required before login
+- [ ] Duplicate email prevention working
+- [ ] JWT token authentication working
+- [ ] OAuth2 integration secure and working
+- [ ] API Gateway rate limiting configured (5-10 req/s for public endpoints)
+- [ ] All security events logged to CloudWatch
+- [ ] HTTPS enforcement verified
+- [ ] SQL injection prevention verified
+- [ ] XSS prevention verified
+- [ ] CSRF protection verified
+
+### Performance Targets
+- [ ] Lambda cold start < 3 seconds
+- [ ] API response time < 500ms (p95)
+- [ ] Database query time < 100ms (p95)
+- [ ] Frontend page load < 2 seconds
+- [ ] Email delivery < 5 seconds
+- [ ] System handles 100+ concurrent users
+
+### Deployment Readiness
+- [ ] Infrastructure as Code (AWS CDK) complete
+- [ ] CI/CD pipeline configured and working
+- [ ] Environment variables configured
+- [ ] SES configured and verified
+- [ ] OAuth2 credentials configured
+- [ ] Monitoring and alerts set up (CloudWatch)
+- [ ] Documentation complete (README, API docs, deployment guide)
+- [ ] Production deployment successful
+
+### Registration & Verification Specific
+- [ ] Registration form validates all fields correctly
+- [ ] Password complexity requirements displayed and validated
+- [ ] Duplicate email detection working
+- [ ] Verification email sent successfully
+- [ ] Email verification link working
+- [ ] Unverified users cannot log in
+- [ ] Social login creates or links accounts correctly
