@@ -153,7 +153,7 @@ This allows:
 ### Recommended Plugins
 
 #### For Developers
-- **Figma to Code** - Generate HTML/CSS/Angular code
+- **Figma to Code** - Generate HTML/CSS/React code
 - **Inspect** - Get CSS properties and measurements
 - **Iconify** - Access icon libraries
 - **Content Reel** - Generate realistic content
@@ -216,59 +216,70 @@ width: 100%;
 border-radius: 4px;
 ```
 
-## Angular Material Mapping
+## Material-UI (MUI) Mapping
 
-### Map Figma Components to Angular Material
+### Map Figma Components to Material-UI
 
 #### Form Fields
-```typescript
-// Figma: Text Input → Angular Material
-<mat-form-field appearance="outline">
-  <mat-label>Email</mat-label>
-  <input matInput type="email" />
-  <mat-error>Please enter a valid email</mat-error>
-</mat-form-field>
+```tsx
+// Figma: Text Input → Material-UI
+import { TextField } from '@mui/material';
+
+<TextField
+  label="Email"
+  type="email"
+  variant="outlined"
+  error={hasError}
+  helperText={hasError ? "Please enter a valid email" : ""}
+  fullWidth
+/>
 ```
 
 #### Buttons
-```typescript
-// Figma: Primary Button → Angular Material
-<button mat-raised-button color="primary">
+```tsx
+// Figma: Primary Button → Material-UI
+import { Button } from '@mui/material';
+
+<Button variant="contained" color="primary">
   Login
-</button>
+</Button>
 ```
 
 #### Radio Buttons
-```typescript
-// Figma: Radio Group → Angular Material
-<mat-radio-group>
-  <mat-radio-button value="male">Male</mat-radio-button>
-  <mat-radio-button value="female">Female</mat-radio-button>
-  <mat-radio-button value="other">Other</mat-radio-button>
-</mat-radio-group>
+```tsx
+// Figma: Radio Group → Material-UI
+import { RadioGroup, FormControlLabel, Radio } from '@mui/material';
+
+<RadioGroup>
+  <FormControlLabel value="male" control={<Radio />} label="Male" />
+  <FormControlLabel value="female" control={<Radio />} label="Female" />
+  <FormControlLabel value="other" control={<Radio />} label="Other" />
+</RadioGroup>
 ```
 
 ### Custom Theming from Figma
-```scss
-// Extract colors from Figma and create Angular Material theme
-@use '@angular/material' as mat;
+```typescript
+// Extract colors from Figma and create Material-UI theme
+import { createTheme } from '@mui/material/styles';
 
-$custom-primary: mat.define-palette(mat.$blue-palette, 700);
-$custom-accent: mat.define-palette(mat.$orange-palette, 500);
-$custom-warn: mat.define-palette(mat.$red-palette, 700);
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976D2',
+    },
+    secondary: {
+      main: '#FF9800',
+    },
+    error: {
+      main: '#D32F2F',
+    },
+  },
+  typography: {
+    fontFamily: 'Roboto, sans-serif',
+  },
+});
 
-$custom-theme: mat.define-light-theme((
-  color: (
-    primary: $custom-primary,
-    accent: $custom-accent,
-    warn: $custom-warn,
-  ),
-  typography: mat.define-typography-config(
-    $font-family: 'Roboto, sans-serif',
-  ),
-));
-
-@include mat.all-component-themes($custom-theme);
+export default theme;
 ```
 
 ## Asset Export from Figma
@@ -302,12 +313,12 @@ $custom-theme: mat.define-light-theme((
 ## Responsive Design in Figma
 
 ### Breakpoints to Design
-Match Angular Material breakpoints:
+Match Material-UI breakpoints:
 
-- **Mobile**: 320px - 599px (xs)
-- **Tablet**: 600px - 959px (sm)
-- **Desktop**: 960px - 1279px (md)
-- **Large Desktop**: 1280px+ (lg, xl)
+- **Mobile**: 0px - 599px (xs)
+- **Tablet**: 600px - 899px (sm)
+- **Desktop**: 900px - 1199px (md)
+- **Large Desktop**: 1200px+ (lg, xl)
 
 ### Figma Frames for Breakpoints
 Create separate frames for each breakpoint:
@@ -353,7 +364,7 @@ Use Figma Tokens plugin to export:
 }
 ```
 
-### Import to Angular
+### Import to React
 ```typescript
 // design-tokens.ts
 export const DesignTokens = {
@@ -414,7 +425,7 @@ export const DesignTokens = {
 
 - [ ] Create LoginComponent
   - Reference: Figma frame "Login - Desktop"
-  - Use Angular Material form fields
+  - Use Material-UI form fields
   - Extract colors from Figma Inspect
   
 - [ ] Implement form validation
@@ -424,7 +435,7 @@ export const DesignTokens = {
   
 - [ ] Add responsive layout
   - Reference: Figma frames "Login - Mobile/Tablet/Desktop"
-  - Use Angular Flex Layout
+  - Use Material-UI Grid/Box components
   - Test on all breakpoints
 
 - [ ] Export and integrate assets
@@ -459,12 +470,12 @@ Use Figma API to:
 ### Example: Fetch Figma File Info
 ```typescript
 // figma-sync.service.ts
-async getFigmaFile(fileId: string) {
+export async function getFigmaFile(fileId: string) {
   const response = await fetch(
     `https://api.figma.com/v1/files/${fileId}`,
     {
       headers: {
-        'X-Figma-Token': process.env.FIGMA_TOKEN
+        'X-Figma-Token': process.env.REACT_APP_FIGMA_TOKEN
       }
     }
   );

@@ -16,7 +16,7 @@ When Stories/Tasks are created from Spec Mode, they should be automatically rout
 Configure these roles in Jira Project Settings → People:
 
 - **Backend Team** - Java/AWS Lambda developers
-- **Frontend Team** - Angular/TypeScript developers
+- **Frontend Team** - React/TypeScript developers
 - **DevOps Team** - Infrastructure and deployment engineers
 - **QA Team** - Quality assurance and testing specialists
 
@@ -40,11 +40,11 @@ Create these components in Project Settings → Components:
 **Default Assignee**: Backend Team Lead or use Component Lead
 
 #### Frontend Components
-- `frontend-ui` - Angular components and pages
+- `frontend-ui` - React components and pages
 - `frontend-forms` - Form handling and validation
 - `frontend-routing` - Navigation and routing
 - `frontend-state` - State management
-- `frontend-styling` - CSS/Material theming
+- `frontend-styling` - CSS/Material-UI theming
 
 **Default Assignee**: Frontend Team Lead
 

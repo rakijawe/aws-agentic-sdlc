@@ -8,7 +8,7 @@ This design document describes the architecture and implementation approach for 
 2. **Profile Management Module**: Allows authenticated users to view and update their profile information
 
 The system follows a modern serverless architecture with:
-- **Frontend**: Angular 16+ with TypeScript and Angular Material for UI components
+- **Frontend**: React 18+ with TypeScript and Material-UI (MUI) for UI components
 - **Backend**: AWS Lambda functions with Java 17 runtime for serverless API logic
 - **API Gateway**: AWS API Gateway for REST API endpoints and request routing
 - **Database**: Amazon RDS PostgreSQL for data persistence
@@ -63,7 +63,7 @@ Key design principles:
 ### Implementation Guidelines from Figma
 
 1. **Extract Design Tokens**: Use Figma Inspect panel to get exact colors, typography, and spacing
-2. **Angular Material Mapping**: Map Figma components to Angular Material components
+2. **Material-UI Mapping**: Map Figma components to Material-UI (MUI) components
 3. **Responsive Breakpoints**: Implement layouts for Mobile (375px), Tablet (768px), Desktop (1440px)
 4. **Interactive States**: Implement hover, focus, active, disabled, and error states as shown in Figma
 5. **Accessibility**: Ensure WCAG AA compliance for color contrast and keyboard navigation
@@ -124,7 +124,7 @@ This section maps design components to the requirements they implement:
 
 ```mermaid
 graph TB
-    subgraph "Frontend - Angular"
+    subgraph "Frontend - React"
         A[Login Component]
         B[Profile Component]
         C[Auth Service]
@@ -222,9 +222,9 @@ graph TB
 **Figma Reference**: Login Page - Desktop/Mobile/Tablet frames
 
 **Template Elements:**
-- Email input field (type="email") - Angular Material `<mat-form-field>` with `<input matInput>`
-- Password input field (type="password") - Angular Material with show/hide toggle
-- Login button (disabled when fields empty) - Angular Material `<button mat-raised-button>`
+- Email input field (type="email") - Material-UI `TextField` with variant="outlined"
+- Password input field (type="password") - Material-UI `TextField` with show/hide toggle
+- Login button (disabled when fields empty) - Material-UI `Button` variant="contained"
 - Error message display area - Custom error component matching Figma error states
 
 **Properties:**
@@ -261,16 +261,16 @@ validateForm(): boolean  // Client-side validation
 **Figma Reference**: Profile Management Page - Desktop/Mobile/Tablet frames
 
 **Template Elements:**
-- Title dropdown (Mr, Ms, Mrs, Dr) - Angular Material `<mat-select>` (Req 11)
-- First Name text input (required) - Angular Material `<mat-form-field>` (Req 10)
-- Last Name text input (required) - Angular Material `<mat-form-field>` (Req 10)
-- Gender radio buttons (Male, Female, Other) (required) - Angular Material `<mat-radio-group>` (Req 12)
-- Age numeric input (range: 18-120) - Angular Material with validation (Req 13)
-- Email text input (required, conditionally read-only) - Angular Material (Req 14, 18)
-- Address textarea - Angular Material `<textarea matInput>`
-- Preferences multi-select checkboxes (required, at least one) - Angular Material `<mat-checkbox>` (Req 15)
-- Save button - Angular Material `<button mat-raised-button color="primary">` (Req 16)
-- Cancel button - Angular Material `<button mat-button>` (Req 17)
+- Title dropdown (Mr, Ms, Mrs, Dr) - Material-UI `Select` (Req 11)
+- First Name text input (required) - Material-UI `TextField` (Req 10)
+- Last Name text input (required) - Material-UI `TextField` (Req 10)
+- Gender radio buttons (Male, Female, Other) (required) - Material-UI `RadioGroup` (Req 12)
+- Age numeric input (range: 18-120) - Material-UI `TextField` type="number" with validation (Req 13)
+- Email text input (required, conditionally read-only) - Material-UI `TextField` (Req 14, 18)
+- Address textarea - Material-UI `TextField` multiline (Req 9)
+- Preferences multi-select checkboxes (required, at least one) - Material-UI `Checkbox` (Req 15)
+- Save button - Material-UI `Button` variant="contained" color="primary" (Req 16)
+- Cancel button - Material-UI `Button` variant="outlined" (Req 17)
 
 **Properties:**
 ```typescript
@@ -310,14 +310,14 @@ cancel(): void  // Implements Req 17
 
 **Methods:**
 ```typescript
-login(email: string, password: string): Observable<AuthResponse>  // Implements Req 2, 3
+login(email: string, password: string): Promise<AuthResponse>  // Implements Req 2, 3
 logout(): void
 getToken(): string | null
 isAuthenticated(): boolean
 ```
 
 **Security Implementation:**
-- Store JWT token in localStorage with secure practices
+- Store JWT token in localStorage or sessionStorage with secure practices
 - Include token in Authorization header for all authenticated requests
 - Clear token on logout
 - Validate token expiry before API calls
@@ -328,9 +328,9 @@ isAuthenticated(): boolean
 
 **Methods:**
 ```typescript
-getProfile(): Observable<UserProfile>  // Implements Req 9
-updateProfile(profile: UserProfile): Observable<UpdateResponse>  // Implements Req 16
-checkEmailPolicy(): Observable<EmailPolicyResponse>  // Implements Req 18
+getProfile(): Promise<UserProfile>  // Implements Req 9
+updateProfile(profile: UserProfile): Promise<UpdateResponse>  // Implements Req 16
+checkEmailPolicy(): Promise<EmailPolicyResponse>  // Implements Req 18
 ```
 
 #### ValidationService
@@ -1122,7 +1122,7 @@ Arbitrary<String> invalidPasswords() {
 
 ### Frontend Testing
 
-**Unit Tests (Jasmine/Karma)**:
+**Unit Tests (Jest/React Testing Library)**:
 - Component rendering and initialization
 - Form validation logic
 - User interaction handling (button clicks, input changes)
@@ -1133,19 +1133,25 @@ Arbitrary<String> invalidPasswords() {
 ```typescript
 describe('LoginComponent', () => {
   it('should disable login button when email is empty', () => {
-    component.email = '';
-    component.password = 'ValidPass123!';
-    component.onEmailChange();
+    const { getByRole } = render(<LoginComponent />);
+    const emailInput = getByRole('textbox', { name: /email/i });
+    const passwordInput = getByLabelText(/password/i);
+    const loginButton = getByRole('button', { name: /login/i });
     
-    expect(component.isLoginDisabled).toBe(true);
+    fireEvent.change(emailInput, { target: { value: '' } });
+    fireEvent.change(passwordInput, { target: { value: 'ValidPass123!' } });
+    
+    expect(loginButton).toBeDisabled();
   });
   
   it('should display error for invalid email format', () => {
-    component.email = 'invalid-email';
-    const result = validationService.validateEmail(component.email);
+    const { getByRole, getByText } = render(<LoginComponent />);
+    const emailInput = getByRole('textbox', { name: /email/i });
     
-    expect(result.isValid).toBe(false);
-    expect(result.errorMessage).toBe('Please enter a valid email address');
+    fireEvent.change(emailInput, { target: { value: 'invalid-email' } });
+    fireEvent.blur(emailInput);
+    
+    expect(getByText('Please enter a valid email address')).toBeInTheDocument();
   });
 });
 ```
@@ -1341,13 +1347,13 @@ This section provides comprehensive mapping between design components and requir
 
 | Requirement | Design Components | Figma Reference | Implementation Details |
 |-------------|-------------------|-----------------|------------------------|
-| **Req 1: Login Page Access** | LoginComponent | Login Page - Desktop/Mobile/Tablet | Angular component with responsive layout, 400px max-width container, centered |
-| **Req 8: View Profile Page** | ProfileComponent | Profile Management Page | Angular component with 800px max-width, 2-column grid on desktop |
+| **Req 1: Login Page Access** | LoginComponent | Login Page - Desktop/Mobile/Tablet | React component with responsive layout, 400px max-width container, centered |
+| **Req 8: View Profile Page** | ProfileComponent | Profile Management Page | React component with 800px max-width, 2-column grid on desktop |
 | **Req 9: Display Profile Fields** | ProfileComponent, GetProfileHandler | Profile - Form Fields | All 8 fields displayed with proper labels and input types |
-| **Req 11: Title Field Behavior** | ProfileComponent | Profile - Title dropdown | Angular Material `<mat-select>` with 4 options (Mr, Ms, Mrs, Dr) |
-| **Req 12: Gender Field Validation** | ProfileComponent | Profile - Gender radio buttons | Angular Material `<mat-radio-group>` with 3 options (Male, Female, Other) |
-| **Req 15: Preferences Selection** | ProfileComponent | Profile - Preferences checkboxes | Angular Material `<mat-checkbox>` group with 3 options, at least one required |
-| **Req 18: Read Only Email Rule** | ProfileComponent, GetEmailPolicyHandler | Profile - Email read-only state | Conditionally set `readonly` attribute based on policy response |
+| **Req 11: Title Field Behavior** | ProfileComponent | Profile - Title dropdown | Material-UI `Select` with 4 options (Mr, Ms, Mrs, Dr) |
+| **Req 12: Gender Field Validation** | ProfileComponent | Profile - Gender radio buttons | Material-UI `RadioGroup` with 3 options (Male, Female, Other) |
+| **Req 15: Preferences Selection** | ProfileComponent | Profile - Preferences checkboxes | Material-UI `Checkbox` group with 3 options, at least one required |
+| **Req 18: Read Only Email Rule** | ProfileComponent, GetEmailPolicyHandler | Profile - Email read-only state | Conditionally set `disabled` or `readOnly` attribute based on policy response |
 
 ### Validation Requirements (VR) Implementation
 
@@ -1370,12 +1376,12 @@ This section provides comprehensive mapping between design components and requir
 | **Req 7: Account Locking** | LoginAttemptRepository, AuthLoginHandler | Failed attempt tracking and account locking | Track attempts in database, lock account for 30 minutes after 5 consecutive failures |
 
 **Additional Security Measures:**
-- JWT token authentication with secure storage (localStorage with HttpOnly cookies recommended)
+- JWT token authentication with secure storage (localStorage or sessionStorage)
 - API Gateway rate limiting: 10 requests/second for login endpoint
 - HTTPS enforcement for all API calls
 - CSRF protection with tokens
 - SQL injection prevention with parameterized queries
-- XSS prevention with Angular's built-in sanitization
+- XSS prevention with React's built-in sanitization
 - Secrets Manager for database credentials and JWT secret
 - CloudWatch logging for all security events (login attempts, account locks)
 
@@ -1409,435 +1415,462 @@ This section provides comprehensive mapping between design components and requir
 Use Figma Inspect panel to extract exact values:
 
 **Colors (from Figma design system):**
-```scss
-// src/styles/_variables.scss
-$primary-color: #1976D2;
-$primary-dark: #1565C0;
-$primary-light: #42A5F5;
-$accent-color: #FF9800;
-$error-color: #D32F2F;
-$success-color: #388E3C;
-$warning-color: #F57C00;
-$text-primary: #212121;
-$text-secondary: #757575;
-$text-disabled: #BDBDBD;
-$background: #FAFAFA;
-$surface: #FFFFFF;
-$divider: #E0E0E0;
+```typescript
+// src/styles/designTokens.ts
+export const colors = {
+  primary: '#1976D2',
+  primaryDark: '#1565C0',
+  primaryLight: '#42A5F5',
+  accent: '#FF9800',
+  error: '#D32F2F',
+  success: '#388E3C',
+  warning: '#F57C00',
+  textPrimary: '#212121',
+  textSecondary: '#757575',
+  textDisabled: '#BDBDBD',
+  background: '#FAFAFA',
+  surface: '#FFFFFF',
+  divider: '#E0E0E0',
+};
 ```
 
 **Typography (from Figma design system):**
-```scss
-// src/styles/_typography.scss
-$font-family: 'Roboto', sans-serif;
-
-// Headings
-$h1-size: 32px;
-$h1-weight: 500;
-$h1-line-height: 40px;
-
-$h2-size: 24px;
-$h2-weight: 500;
-$h2-line-height: 32px;
-
-// Body
-$body-size: 16px;
-$body-weight: 400;
-$body-line-height: 24px;
-
-// Labels
-$label-size: 14px;
-$label-weight: 500;
-$label-line-height: 20px;
-
-// Captions
-$caption-size: 12px;
-$caption-weight: 400;
-$caption-line-height: 16px;
+```typescript
+// src/styles/designTokens.ts
+export const typography = {
+  fontFamily: 'Roboto, sans-serif',
+  
+  // Headings
+  h1: {
+    size: '32px',
+    weight: 500,
+    lineHeight: '40px',
+  },
+  h2: {
+    size: '24px',
+    weight: 500,
+    lineHeight: '32px',
+  },
+  
+  // Body
+  body: {
+    size: '16px',
+    weight: 400,
+    lineHeight: '24px',
+  },
+  
+  // Labels
+  label: {
+    size: '14px',
+    weight: 500,
+    lineHeight: '20px',
+  },
+  
+  // Captions
+  caption: {
+    size: '12px',
+    weight: 400,
+    lineHeight: '16px',
+  },
+};
 ```
 
 **Spacing (from Figma design system):**
-```scss
-// src/styles/_spacing.scss
-$spacing-xs: 4px;
-$spacing-sm: 8px;
-$spacing-md: 16px;
-$spacing-lg: 24px;
-$spacing-xl: 32px;
-$spacing-xxl: 48px;
+```typescript
+// src/styles/designTokens.ts
+export const spacing = {
+  xs: 4,   // 4px
+  sm: 8,   // 8px
+  md: 16,  // 16px
+  lg: 24,  // 24px
+  xl: 32,  // 32px
+  xxl: 48, // 48px
+};
 ```
 
 **Border Radius:**
-```scss
-$border-radius-sm: 4px;  // Inputs, buttons
-$border-radius-md: 8px;  // Cards
-$border-radius-lg: 16px; // Modals
+```typescript
+// src/styles/designTokens.ts
+export const borderRadius = {
+  sm: 4,   // Inputs, buttons
+  md: 8,   // Cards
+  lg: 16,  // Modals
+};
 ```
 
-### Step 2: Configure Angular Material Theme
+### Step 2: Configure Material-UI Theme
 
-Map Figma colors to Angular Material theme:
+Map Figma colors to Material-UI theme:
 
-```scss
-// src/styles/theme.scss
-@use '@angular/material' as mat;
-@include mat.core();
+```typescript
+// src/theme.ts
+import { createTheme } from '@mui/material/styles';
 
-// Define custom palettes based on Figma colors
-$custom-primary: mat.define-palette(mat.$blue-palette, 700, 600, 800);
-$custom-accent: mat.define-palette(mat.$orange-palette, 500, 400, 600);
-$custom-warn: mat.define-palette(mat.$red-palette, 700, 600, 800);
+// Define custom theme based on Figma colors
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976D2',
+      dark: '#1565C0',
+      light: '#42A5F5',
+    },
+    secondary: {
+      main: '#FF9800',
+    },
+    error: {
+      main: '#D32F2F',
+    },
+    success: {
+      main: '#388E3C',
+    },
+    warning: {
+      main: '#F57C00',
+    },
+    text: {
+      primary: '#212121',
+      secondary: '#757575',
+      disabled: '#BDBDBD',
+    },
+    background: {
+      default: '#FAFAFA',
+      paper: '#FFFFFF',
+    },
+    divider: '#E0E0E0',
+  },
+  typography: {
+    fontFamily: 'Roboto, sans-serif',
+    h1: {
+      fontSize: '32px',
+      fontWeight: 500,
+      lineHeight: '40px',
+    },
+    h2: {
+      fontSize: '24px',
+      fontWeight: 500,
+      lineHeight: '32px',
+    },
+    body1: {
+      fontSize: '16px',
+      fontWeight: 400,
+      lineHeight: '24px',
+    },
+    body2: {
+      fontSize: '14px',
+      fontWeight: 500,
+      lineHeight: '20px',
+    },
+    caption: {
+      fontSize: '12px',
+      fontWeight: 400,
+      lineHeight: '16px',
+    },
+  },
+  spacing: 4, // Base spacing unit (4px)
+  shape: {
+    borderRadius: 4,
+  },
+});
 
-// Create theme
-$custom-theme: mat.define-light-theme((
-  color: (
-    primary: $custom-primary,
-    accent: $custom-accent,
-    warn: $custom-warn,
-  ),
-  typography: mat.define-typography-config(
-    $font-family: 'Roboto, sans-serif',
-    $headline-1: mat.define-typography-level(32px, 40px, 500),
-    $headline-2: mat.define-typography-level(24px, 32px, 500),
-    $body-1: mat.define-typography-level(16px, 24px, 400),
-    $body-2: mat.define-typography-level(14px, 20px, 400),
-    $caption: mat.define-typography-level(12px, 16px, 400),
-  ),
-));
-
-@include mat.all-component-themes($custom-theme);
+export default theme;
 ```
 
 ### Step 3: Implement Responsive Breakpoints
 
-Match Figma breakpoints in Angular:
+Match Figma breakpoints in React with Material-UI:
 
-```scss
-// src/styles/_breakpoints.scss
-$breakpoint-mobile: 375px;
-$breakpoint-tablet: 768px;
-$breakpoint-desktop: 1440px;
+```typescript
+// src/styles/breakpoints.ts
+import { useTheme, useMediaQuery } from '@mui/material';
 
-@mixin mobile {
-  @media (max-width: #{$breakpoint-tablet - 1px}) {
-    @content;
-  }
-}
+export const useResponsive = () => {
+  const theme = useTheme();
+  
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm')); // < 600px
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md')); // 600px - 900px
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md')); // >= 900px
+  
+  return { isMobile, isTablet, isDesktop };
+};
 
-@mixin tablet {
-  @media (min-width: $breakpoint-tablet) and (max-width: #{$breakpoint-desktop - 1px}) {
-    @content;
-  }
-}
-
-@mixin desktop {
-  @media (min-width: $breakpoint-desktop) {
-    @content;
-  }
-}
+// Or use styled-components with breakpoints
+export const breakpoints = {
+  mobile: '375px',
+  tablet: '768px',
+  desktop: '1440px',
+};
 ```
 
-### Step 4: Map Figma Components to Angular Material
+### Step 4: Map Figma Components to Material-UI
 
 **Login Form Example:**
-```html
-<!-- login.component.html -->
-<div class="login-container">
-  <mat-card class="login-card">
-    <mat-card-header>
-      <mat-card-title>Login</mat-card-title>
-    </mat-card-header>
-    
-    <mat-card-content>
-      <form [formGroup]="loginForm" (ngSubmit)="login()">
-        <!-- Email Field (from Figma: Login - Email Input) -->
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Email</mat-label>
-          <input matInput type="email" formControlName="email" 
-                 placeholder="name@domain.com">
-          <mat-error *ngIf="loginForm.get('email')?.hasError('required')">
-            Email is required
-          </mat-error>
-          <mat-error *ngIf="loginForm.get('email')?.hasError('email')">
-            Please enter a valid email address
-          </mat-error>
-        </mat-form-field>
 
-        <!-- Password Field (from Figma: Login - Password Input) -->
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Password</mat-label>
-          <input matInput [type]="hidePassword ? 'password' : 'text'" 
-                 formControlName="password">
-          <button mat-icon-button matSuffix 
-                  (click)="hidePassword = !hidePassword" 
-                  type="button">
-            <mat-icon>{{hidePassword ? 'visibility_off' : 'visibility'}}</mat-icon>
-          </button>
-          <mat-error *ngIf="loginForm.get('password')?.hasError('required')">
-            Password is required
-          </mat-error>
-          <mat-error *ngIf="loginForm.get('password')?.hasError('pattern')">
-            Password does not meet complexity requirements
-          </mat-error>
-        </mat-form-field>
+The React/Material-UI implementation is shown in the earlier section with the complete LoginComponent.tsx code example that includes:
+- Material-UI TextField components for email and password
+- Material-UI Button with loading state
+- Material-UI Alert for error messages
+- Material-UI Card for layout
+- Proper TypeScript typing and React hooks
 
-        <!-- Error Message (from Figma: Login - Error State) -->
-        <div class="error-message" *ngIf="errorMessage">
-          <mat-icon>error</mat-icon>
-          <span>{{ errorMessage }}</span>
-        </div>
-
-        <!-- Login Button (from Figma: Login - Primary Button) -->
-        <button mat-raised-button color="primary" type="submit" 
-                class="login-button" [disabled]="!loginForm.valid || isLoading">
-          <span *ngIf="!isLoading">Login</span>
-          <mat-spinner *ngIf="isLoading" diameter="20"></mat-spinner>
-        </button>
-      </form>
-    </mat-card-content>
-  </mat-card>
-</div>
-```
-
-**Login Component Styles (matching Figma):**
-```scss
-// login.component.scss
-.login-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background-color: $background;
-  padding: $spacing-lg;
-}
-
-.login-card {
-  max-width: 400px;
-  width: 100%;
-  padding: $spacing-xl;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.full-width {
-  width: 100%;
-  margin-bottom: $spacing-lg;
-}
-
-.error-message {
-  display: flex;
-  align-items: center;
-  gap: $spacing-sm;
-  color: $error-color;
-  font-size: $body-size;
-  margin-bottom: $spacing-lg;
-  
-  mat-icon {
-    font-size: 20px;
-    width: 20px;
-    height: 20px;
-  }
-}
-
-.login-button {
-  width: 100%;
-  height: 48px;
-  font-size: $body-size;
-  font-weight: 500;
-  margin-top: $spacing-xl;
-}
-
-// Responsive adjustments
-@include mobile {
-  .login-card {
-    padding: $spacing-lg;
-  }
-}
-```
+Please refer to the complete LoginComponent.tsx example provided earlier in this document for the full implementation.
 
 ### Step 5: Implement Profile Form (matching Figma)
 
-```html
-<!-- profile.component.html -->
-<div class="profile-container">
-  <mat-card class="profile-card">
-    <mat-card-header>
-      <mat-card-title>Profile Management</mat-card-title>
-    </mat-card-header>
-    
-    <mat-card-content>
-      <form [formGroup]="profileForm" (ngSubmit)="save()">
-        <div class="form-grid">
-          <!-- Title Dropdown (from Figma: Profile - Title Dropdown) -->
-          <mat-form-field appearance="outline">
-            <mat-label>Title</mat-label>
-            <mat-select formControlName="title">
-              <mat-option value="Mr">Mr</mat-option>
-              <mat-option value="Ms">Ms</mat-option>
-              <mat-option value="Mrs">Mrs</mat-option>
-              <mat-option value="Dr">Dr</mat-option>
-            </mat-select>
-          </mat-form-field>
+```tsx
+// ProfileComponent.tsx
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Card,
+  CardContent,
+  CardHeader,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  Checkbox,
+  Button,
+  CircularProgress,
+  FormHelperText,
+  Grid,
+  InputAdornment,
+} from '@mui/material';
+import { Lock as LockIcon } from '@mui/icons-material';
 
-          <!-- First Name (from Figma: Profile - First Name Input) -->
-          <mat-form-field appearance="outline">
-            <mat-label>First Name *</mat-label>
-            <input matInput formControlName="firstName">
-            <mat-error>First name is required</mat-error>
-          </mat-form-field>
+export const ProfileComponent: React.FC = () => {
+  const [profile, setProfile] = useState({
+    title: '',
+    firstName: '',
+    lastName: '',
+    gender: '',
+    age: '',
+    email: '',
+    address: '',
+    emailNotifications: false,
+    smsNotifications: false,
+    appNotifications: false,
+  });
+  const [originalProfile, setOriginalProfile] = useState(profile);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isEmailReadOnly, setIsEmailReadOnly] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-          <!-- Last Name (from Figma: Profile - Last Name Input) -->
-          <mat-form-field appearance="outline">
-            <mat-label>Last Name *</mat-label>
-            <input matInput formControlName="lastName">
-            <mat-error>Last name is required</mat-error>
-          </mat-form-field>
+  const hasPreferenceSelected = () => {
+    return profile.emailNotifications || profile.smsNotifications || profile.appNotifications;
+  };
 
-          <!-- Gender Radio Buttons (from Figma: Profile - Gender Radio Group) -->
-          <div class="form-field">
-            <label class="field-label">Gender *</label>
-            <mat-radio-group formControlName="gender">
-              <mat-radio-button value="Male">Male</mat-radio-button>
-              <mat-radio-button value="Female">Female</mat-radio-button>
-              <mat-radio-button value="Other">Other</mat-radio-button>
-            </mat-radio-group>
-            <mat-error *ngIf="profileForm.get('gender')?.hasError('required')">
-              Gender selection is mandatory
-            </mat-error>
-          </div>
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // Save logic here
+  };
 
-          <!-- Age (from Figma: Profile - Age Input) -->
-          <mat-form-field appearance="outline">
-            <mat-label>Age</mat-label>
-            <input matInput type="number" formControlName="age" 
-                   min="18" max="120">
-            <mat-error>Age must be between 18 and 120</mat-error>
-          </mat-form-field>
+  const handleCancel = () => {
+    setProfile(originalProfile);
+    setErrors({});
+  };
 
-          <!-- Email (from Figma: Profile - Email Input) -->
-          <mat-form-field appearance="outline">
-            <mat-label>Email *</mat-label>
-            <input matInput type="email" formControlName="email" 
-                   [readonly]="isEmailReadOnly">
-            <mat-icon matSuffix *ngIf="isEmailReadOnly">lock</mat-icon>
-            <mat-error>Please enter a valid email address</mat-error>
-          </mat-form-field>
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        padding: { xs: 3, md: 6 },
+        backgroundColor: 'background.default',
+        minHeight: '100vh',
+      }}
+    >
+      <Card sx={{ maxWidth: 800, width: '100%', padding: { xs: 3, md: 6 } }}>
+        <CardHeader title="Profile Management" />
+        <CardContent>
+          <form onSubmit={handleSave}>
+            <Grid container spacing={3}>
+              {/* Title Dropdown (from Figma: Profile - Title Dropdown) */}
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth variant="outlined">
+                  <InputLabel>Title</InputLabel>
+                  <Select
+                    value={profile.title}
+                    onChange={(e) => setProfile({ ...profile, title: e.target.value })}
+                    label="Title"
+                  >
+                    <MenuItem value="Mr">Mr</MenuItem>
+                    <MenuItem value="Ms">Ms</MenuItem>
+                    <MenuItem value="Mrs">Mrs</MenuItem>
+                    <MenuItem value="Dr">Dr</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
 
-          <!-- Address (from Figma: Profile - Address Textarea) -->
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Address</mat-label>
-            <textarea matInput formControlName="address" rows="3"></textarea>
-          </mat-form-field>
+              {/* First Name (from Figma: Profile - First Name Input) */}
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="First Name *"
+                  variant="outlined"
+                  fullWidth
+                  value={profile.firstName}
+                  onChange={(e) => setProfile({ ...profile, firstName: e.target.value })}
+                  error={!!errors.firstName}
+                  helperText={errors.firstName}
+                  required
+                />
+              </Grid>
 
-          <!-- Preferences (from Figma: Profile - Preferences Checkboxes) -->
-          <div class="form-field full-width">
-            <label class="field-label">Preferences *</label>
-            <div class="checkbox-group">
-              <mat-checkbox formControlName="emailNotifications">
-                Email Notifications
-              </mat-checkbox>
-              <mat-checkbox formControlName="smsNotifications">
-                SMS Notifications
-              </mat-checkbox>
-              <mat-checkbox formControlName="appNotifications">
-                App Notifications
-              </mat-checkbox>
-            </div>
-            <mat-error *ngIf="!hasPreferenceSelected()">
-              At least one preference is required
-            </mat-error>
-          </div>
-        </div>
+              {/* Last Name (from Figma: Profile - Last Name Input) */}
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Last Name *"
+                  variant="outlined"
+                  fullWidth
+                  value={profile.lastName}
+                  onChange={(e) => setProfile({ ...profile, lastName: e.target.value })}
+                  error={!!errors.lastName}
+                  helperText={errors.lastName}
+                  required
+                />
+              </Grid>
 
-        <!-- Action Buttons (from Figma: Profile - Action Buttons) -->
-        <div class="action-buttons">
-          <button mat-button type="button" (click)="cancel()">
-            Cancel
-          </button>
-          <button mat-raised-button color="primary" type="submit" 
-                  [disabled]="!profileForm.valid || isLoading">
-            <span *ngIf="!isLoading">Save</span>
-            <mat-spinner *ngIf="isLoading" diameter="20"></mat-spinner>
-          </button>
-        </div>
-      </form>
-    </mat-card-content>
-  </mat-card>
-</div>
-```
+              {/* Gender Radio Buttons (from Figma: Profile - Gender Radio Group) */}
+              <Grid item xs={12} md={6}>
+                <FormControl component="fieldset" error={!!errors.gender}>
+                  <InputLabel shrink sx={{ position: 'relative', transform: 'none', mb: 1 }}>
+                    Gender *
+                  </InputLabel>
+                  <RadioGroup
+                    value={profile.gender}
+                    onChange={(e) => setProfile({ ...profile, gender: e.target.value })}
+                    row
+                  >
+                    <FormControlLabel value="Male" control={<Radio />} label="Male" />
+                    <FormControlLabel value="Female" control={<Radio />} label="Female" />
+                    <FormControlLabel value="Other" control={<Radio />} label="Other" />
+                  </RadioGroup>
+                  {errors.gender && <FormHelperText>{errors.gender}</FormHelperText>}
+                </FormControl>
+              </Grid>
 
-**Profile Component Styles (matching Figma):**
-```scss
-// profile.component.scss
-.profile-container {
-  display: flex;
-  justify-content: center;
-  padding: $spacing-xxl $spacing-lg;
-  background-color: $background;
-  min-height: 100vh;
-}
+              {/* Age (from Figma: Profile - Age Input) */}
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Age"
+                  type="number"
+                  variant="outlined"
+                  fullWidth
+                  value={profile.age}
+                  onChange={(e) => setProfile({ ...profile, age: e.target.value })}
+                  error={!!errors.age}
+                  helperText={errors.age}
+                  inputProps={{ min: 18, max: 120 }}
+                />
+              </Grid>
 
-.profile-card {
-  max-width: 800px;
-  width: 100%;
-  padding: $spacing-xxl;
-}
+              {/* Email (from Figma: Profile - Email Input) */}
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Email *"
+                  type="email"
+                  variant="outlined"
+                  fullWidth
+                  value={profile.email}
+                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                  error={!!errors.email}
+                  helperText={errors.email}
+                  disabled={isEmailReadOnly}
+                  InputProps={{
+                    endAdornment: isEmailReadOnly ? (
+                      <InputAdornment position="end">
+                        <LockIcon />
+                      </InputAdornment>
+                    ) : null,
+                  }}
+                  required
+                />
+              </Grid>
 
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: $spacing-lg;
-  margin-bottom: $spacing-xl;
-}
+              {/* Address (from Figma: Profile - Address Textarea) */}
+              <Grid item xs={12}>
+                <TextField
+                  label="Address"
+                  variant="outlined"
+                  fullWidth
+                  multiline
+                  rows={3}
+                  value={profile.address}
+                  onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                />
+              </Grid>
 
-.full-width {
-  grid-column: 1 / -1;
-}
+              {/* Preferences (from Figma: Profile - Preferences Checkboxes) */}
+              <Grid item xs={12}>
+                <FormControl component="fieldset" error={!hasPreferenceSelected()}>
+                  <InputLabel shrink sx={{ position: 'relative', transform: 'none', mb: 1 }}>
+                    Preferences *
+                  </InputLabel>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={profile.emailNotifications}
+                          onChange={(e) =>
+                            setProfile({ ...profile, emailNotifications: e.target.checked })
+                          }
+                        />
+                      }
+                      label="Email Notifications"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={profile.smsNotifications}
+                          onChange={(e) =>
+                            setProfile({ ...profile, smsNotifications: e.target.checked })
+                          }
+                        />
+                      }
+                      label="SMS Notifications"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={profile.appNotifications}
+                          onChange={(e) =>
+                            setProfile({ ...profile, appNotifications: e.target.checked })
+                          }
+                        />
+                      }
+                      label="App Notifications"
+                    />
+                  </Box>
+                  {!hasPreferenceSelected() && (
+                    <FormHelperText>At least one preference is required</FormHelperText>
+                  )}
+                </FormControl>
+              </Grid>
+            </Grid>
 
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-sm;
-}
-
-.field-label {
-  font-size: $label-size;
-  font-weight: $label-weight;
-  color: $text-primary;
-}
-
-.checkbox-group {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-md;
-}
-
-.action-buttons {
-  display: flex;
-  justify-content: flex-end;
-  gap: $spacing-md;
-  
-  button {
-    min-width: 120px;
-    height: 48px;
-  }
-}
-
-// Responsive adjustments
-@include mobile {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .profile-card {
-    padding: $spacing-lg;
-  }
-}
-
-@include tablet {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-}
+            {/* Action Buttons (from Figma: Profile - Action Buttons) */}
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 4 }}>
+              <Button variant="outlined" onClick={handleCancel} sx={{ minWidth: 120, height: 48 }}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                disabled={isLoading}
+                sx={{ minWidth: 120, height: 48 }}
+              >
+                {isLoading ? <CircularProgress size={20} /> : 'Save'}
+              </Button>
+            </Box>
+          </form>
+        </CardContent>
+      </Card>
+    </Box>
+  );
+};
 ```
 
 ### Step 6: Quality Checklist for Figma-to-Code

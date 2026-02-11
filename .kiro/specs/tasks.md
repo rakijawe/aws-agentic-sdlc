@@ -6,7 +6,7 @@ This implementation plan breaks down the user authentication and profile managem
 
 **Technology Stack:**
 - **Backend**: Java 17, AWS Lambda, API Gateway, Maven
-- **Frontend**: Angular 16+, TypeScript, Angular Material
+- **Frontend**: React 18+, TypeScript, Material-UI (MUI)
 - **Database**: PostgreSQL (Amazon RDS)
 - **Infrastructure**: AWS CDK (CloudFormation/SAM)
 - **DevOps**: GitHub, Jenkins/GitHub Actions, Docker, SonarQube
@@ -539,21 +539,21 @@ Complete testing and deploy to production
 
 ---
 
-### Task 11: Create Angular project structure and shared services
+### Task 11: Create React project structure and shared services
 **Phase**: 3 - Validation Layer  
 **Requirement Types**: VR (Validation Requirement), FR (Functional Requirement), UI (UI/UX Requirement)  
 **Team**: @team:frontend @component:frontend-ui @priority:high  
 **Requirements**: All frontend requirements  
 **Figma Reference**: Component Library, Design System
 
-**Description**: Set up Angular project with Material Design and implement shared services for validation, authentication, and profile management.
+**Description**: Set up React project with Material Design and implement shared services for validation, authentication, and profile management.
 
 **Sub-tasks**:
-- [ ] 11.1 Set up Angular project with Angular Material
+- [ ] 11.1 Set up React project with Material-UI (MUI)
   - **Requirement Type**: UI (UI/UX Requirement)
   - **Requirements**: All frontend requirements
-  - Initialize Angular 16+ project with TypeScript
-  - Install Angular Material and configure custom theme based on Figma colors
+  - Initialize React 18+ project with TypeScript
+  - Install Material-UI (MUI) and configure custom theme based on Figma colors
   - Set up routing module with lazy loading
   - Configure environment files for API Gateway URLs
   - Extract design tokens from Figma (colors, typography, spacing)
@@ -571,7 +571,7 @@ Complete testing and deploy to production
 - [ ] 11.3 Create AuthService
   - **Requirement Type**: FR (Functional Requirement) + SR (Security Requirement)
   - **Requirements**: Req 2 (Successful Login), Req 3 (Invalid Credentials)
-  - Implement login(email: string, password: string): Observable<AuthResponse> method
+  - Implement login(email: string, password: string): Promise<AuthResponse> method
   - Implement logout(): void method
   - Implement token storage in localStorage with secure practices
   - Implement isAuthenticated(): boolean method
@@ -581,9 +581,9 @@ Complete testing and deploy to production
 - [ ] 11.4 Create ProfileService
   - **Requirement Type**: FR (Functional Requirement) + DR (Data Requirement)
   - **Requirements**: Req 8 (View Profile), Req 9 (Display Fields), Req 16 (Save Profile), Req 18 (Email Policy)
-  - Implement getProfile(): Observable<UserProfile> method
-  - Implement updateProfile(profile: UserProfile): Observable<UpdateResponse> method
-  - Implement checkEmailPolicy(): Observable<EmailPolicyResponse> method
+  - Implement getProfile(): Promise<UserProfile> method
+  - Implement updateProfile(profile: UserProfile): Promise<UpdateResponse> method
+  - Implement checkEmailPolicy(): Promise<EmailPolicyResponse> method
   - Include JWT token in Authorization header for all requests
   - Handle HTTP errors (401, 403, 404, 500)
   
@@ -591,10 +591,10 @@ Complete testing and deploy to production
   - **Requirement Type**: VR (Validation Requirement) + FR (Functional Requirement)
   - **Requirements**: All validation and service requirements
   - Test ValidationService methods with valid and invalid inputs
-  - Test AuthService with mocked HttpClient
-  - Test ProfileService with mocked HttpClient
+  - Test AuthService with mocked fetch/axios
+  - Test ProfileService with mocked fetch/axios
   - Test error handling and edge cases
-  - Use Jasmine and Karma
+  - Use Jest and React Testing Library
 
 ---
 
@@ -612,17 +612,17 @@ Complete testing and deploy to production
   - **Requirement Type**: UI (UI/UX Requirement)
   - **Requirements**: Req 1 (Login Page Access), Req 2 (Successful Login), Req 3 (Invalid Credentials), Req 4 (Mandatory Fields)
   - Create LoginComponent with TypeScript class and HTML template
-  - Create login form with email and password fields using Angular Material
+  - Create login form with email and password fields using Material-UI (MUI)
   - Add login button with disabled state
   - Add error message display area matching Figma error component
-  - Apply Angular Material styling matching Figma design system
+  - Apply Material-UI (MUI) styling matching Figma design system
   - Implement responsive layout for Mobile (375px), Tablet (768px), Desktop (1440px)
   - Extract exact colors, spacing, typography from Figma Inspect
   
 - [ ] 12.2 Implement form validation logic
   - **Requirement Type**: VR (Validation Requirement) + SR (Security Requirement)
   - **Requirements**: Req 4 (Mandatory Fields), Req 5 (Password Format), Req 6 (Email Format)
-  - Add reactive form with FormBuilder
+  - Add reactive form with useState
   - Implement real-time email format validation using ValidationService
   - Implement real-time password complexity validation using ValidationService
   - Disable login button when email or password field is empty (Req 4)
@@ -655,7 +655,7 @@ Complete testing and deploy to production
   - Test successful login flow (token storage, navigation)
   - Test error handling (invalid credentials, account locked)
   - Test loading state during API call
-  - Use Jasmine and Karma with TestBed
+  - Use Jest and React Testing Library with render from React Testing Library
 
 ---
 
@@ -673,25 +673,25 @@ Complete testing and deploy to production
   - **Requirement Type**: UI (UI/UX Requirement)
   - **Requirements**: Req 8 (View Profile), Req 9 (Display Fields), Req 11 (Title), Req 12 (Gender), Req 15 (Preferences)
   - Create ProfileComponent with TypeScript class and HTML template
-  - Create profile form with all 8 fields using Angular Material:
-    - Title dropdown (Mr, Ms, Mrs, Dr) - `<mat-select>`
-    - First Name text input (required) - `<mat-form-field>`
-    - Last Name text input (required) - `<mat-form-field>`
-    - Gender radio buttons (Male, Female, Other) (required) - `<mat-radio-group>`
-    - Age numeric input (range: 18-120) - `<mat-form-field type="number">`
-    - Email text input (required, conditionally read-only) - `<mat-form-field>`
-    - Address textarea - `<textarea matInput>`
-    - Preferences checkboxes (required, at least one) - `<mat-checkbox>`
+  - Create profile form with all 8 fields using Material-UI (MUI):
+    - Title dropdown (Mr, Ms, Mrs, Dr) - `<Material-UI select>`
+    - First Name text input (required) - `<Material-UI form-field>`
+    - Last Name text input (required) - `<Material-UI form-field>`
+    - Gender radio buttons (Male, Female, Other) (required) - `<Material-UI radio-group>`
+    - Age numeric input (range: 18-120) - `<Material-UI form-field type="number">`
+    - Email text input (required, conditionally read-only) - `<Material-UI form-field>`
+    - Address textarea - `TextField multiline`
+    - Preferences checkboxes (required, at least one) - `<Material-UI checkbox>`
   - Add Save and Cancel buttons matching Figma action buttons
   - Add error message display areas for each field
-  - Apply Angular Material styling matching Figma design system
+  - Apply Material-UI (MUI) styling matching Figma design system
   - Implement responsive layout: 2-column grid on desktop, single column on mobile/tablet
   - Extract exact colors, spacing, typography from Figma Inspect
   
 - [ ] 13.2 Implement profile loading logic
   - **Requirement Type**: UI (UI/UX Requirement) + DR (Data Requirement) + BR (Business Rule)
   - **Requirements**: Req 8 (View Profile), Req 9 (Display Fields), Req 18 (Read Only Email)
-  - Call ProfileService.getProfile on component init (ngOnInit)
+  - Call ProfileService.getProfile on component init (useEffect hook)
   - Populate form with retrieved profile data
   - Store original profile data in originalProfile property for cancel functionality
   - Call ProfileService.checkEmailPolicy to determine if email is read-only
@@ -701,7 +701,7 @@ Complete testing and deploy to production
 - [ ] 13.3 Implement form validation logic
   - **Requirement Type**: VR (Validation Requirement) + BR (Business Rule)
   - **Requirements**: Req 10 (Mandatory Fields), Req 12 (Gender), Req 13 (Age), Req 14 (Email), Req 15 (Preferences)
-  - Add reactive form with FormBuilder and validators
+  - Add reactive form with useState and validators
   - Validate mandatory fields: firstName, lastName, email, gender (Validators.required)
   - Validate gender selection: display "Gender selection is mandatory" if blank
   - Validate email format using ValidationService
@@ -748,7 +748,7 @@ Complete testing and deploy to production
   - Test mandatory field validation
   - Test age range validation
   - Test preferences validation (at least one selected)
-  - Use Jasmine and Karma with TestBed
+  - Use Jest and React Testing Library with render from React Testing Library
 
 ---
 
@@ -758,10 +758,10 @@ Complete testing and deploy to production
 **Team**: @team:frontend @component:frontend-routing  
 **Requirements**: Req 1 (UI), Req 2 (FR), Req 8 (UI)
 
-**Description**: Set up Angular routing with authentication guards and navigation components.
+**Description**: Set up React Router with authentication guards and navigation components.
 
 **Sub-tasks**:
-- [ ] 14.1 Set up Angular routing
+- [ ] 14.1 Set up React Router
   - **Requirement Type**: UI (UI/UX Requirement) + SR (Security Requirement)
   - **Requirements**: Req 1 (Login Page Access), Req 2 (Successful Login), Req 8 (View Profile Page)
   - Define routes for login page (/login) and profile page (/profile)
@@ -773,8 +773,8 @@ Complete testing and deploy to production
 - [ ] 14.2 Create navigation component
   - **Requirement Type**: UI (UI/UX Requirement) + FR (Functional Requirement)
   - **Requirements**: Req 2 (Successful Login - logout flow)
-  - Add navigation bar with Angular Material toolbar
-  - Show navigation only for authenticated users (use *ngIf with AuthService.isAuthenticated())
+  - Add navigation bar with Material-UI (MUI) toolbar
+  - Show navigation only for authenticated users (use conditional rendering with AuthService.isAuthenticated())
   - Add logout button that calls AuthService.logout()
   - Redirect to /login after logout
   - Match Figma navigation design
@@ -786,7 +786,7 @@ Complete testing and deploy to production
   - Test AuthGuard allows authenticated users to access /profile
   - Test navigation component shows/hides based on authentication state
   - Test logout functionality
-  - Use Jasmine and Karma with RouterTestingModule
+  - Use Jest and React Testing Library with MemoryRouter from react-router-dom
 
 ---
 
@@ -804,7 +804,7 @@ Complete testing and deploy to production
   - **Requirements**: All requirements (deployment)
   - Set up GitHub Actions or Jenkins pipeline
   - Configure Java build with Maven (per Java conventions)
-  - Configure Angular build with npm
+  - Configure React build with npm
   - Run unit tests and property tests
   - Generate code coverage reports (target 70% minimum)
   - Run SonarQube analysis for code quality
@@ -822,7 +822,7 @@ Complete testing and deploy to production
 - [ ] 15.3 Configure frontend deployment
   - **Requirement Type**: PR (Performance Requirement)
   - **Requirements**: All frontend requirements
-  - Build Angular application for production (ng build --prod)
+  - Build React application for production (npm run build)
   - Deploy to S3 bucket with static website hosting
   - Configure CloudFront distribution for CDN
   - Configure environment-specific API Gateway URLs
@@ -880,7 +880,7 @@ Complete testing and deploy to production
   - **Requirements**: All security requirements
   - Test JWT token validation (expired token, invalid signature, missing token)
   - Test SQL injection prevention (parameterized queries)
-  - Test XSS prevention (Angular sanitization)
+  - Test XSS prevention (React sanitization)
   - Test CSRF protection (CSRF tokens)
   - Verify HTTPS enforcement for all API calls
   - Verify secure token storage (localStorage with HttpOnly cookies recommended)
@@ -980,7 +980,7 @@ This section provides a comprehensive mapping of requirement types to the tasks 
 - API Gateway rate limiting (Task 9.2: 10 req/s for login)
 - HTTPS enforcement (Task 9.1)
 - SQL injection prevention with parameterized queries (Task 4.1, 4.2)
-- XSS prevention with Angular sanitization (Task 11.1)
+- XSS prevention with React sanitization (Task 11.1)
 - CSRF protection (Task 9.1)
 - Secrets Manager for credentials (Task 1.4, 3.1)
 - CloudWatch logging for security events (Task 1.6, 5.3)
@@ -1049,7 +1049,7 @@ All property-based tests validate universal correctness properties across random
 5. Task 5: AuthLoginHandler (depends on Task 3, 4)
 6. Task 9: API Gateway (depends on Task 5, 8)
 7. Task 10: Backend checkpoint (depends on Task 5, 9)
-8. Task 11: Angular services (depends on Task 10)
+8. Task 11: React services (depends on Task 10)
 9. Task 12: LoginComponent (depends on Task 11)
 10. Task 14: Routing (depends on Task 12)
 
@@ -1085,7 +1085,7 @@ All property-based tests validate universal correctness properties across random
 - **Security**: Follow OWASP security best practices
 - **Logging**: Use SLF4J for all backend logging (per Java conventions)
 - **REST Standards**: Follow proper HTTP status codes and versioning
-- **REXX Modernization**: Part of REXX to Java & Angular modernization initiative
+- **REXX Modernization**: Part of REXX to Java & React modernization initiative
 
 ---
 
@@ -1134,3 +1134,4 @@ All property-based tests validate universal correctness properties across random
 - [ ] Monitoring and alerts set up (CloudWatch)
 - [ ] Documentation complete (README, API docs, deployment guide)
 - [ ] Production deployment successful
+

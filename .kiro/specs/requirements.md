@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This document specifies the requirements for a user authentication and profile management system as part of the REXX modernization initiative. The system provides secure login functionality with validation and account protection, along with comprehensive profile management capabilities for authenticated users. This system replaces legacy REXX authentication and profile management modules with a modern Java backend and Angular frontend.
+This document specifies the requirements for a user authentication and profile management system as part of the REXX modernization initiative. The system provides secure login functionality with validation and account protection, along with comprehensive profile management capabilities for authenticated users. This system replaces legacy REXX authentication and profile management modules with a modern Java backend and React frontend.
 
 ## Figma Design Reference
 
@@ -17,7 +17,7 @@ This document specifies the requirements for a user authentication and profile m
 ### Implementation Notes
 - All UI components should match Figma designs pixel-perfect
 - Extract colors, typography, and spacing from Figma Inspect panel
-- Use Angular Material components mapped to Figma design system
+- Use Material-UI (MUI) components mapped to Figma design system
 - Implement responsive layouts as shown in Figma breakpoints (Mobile: 375px, Tablet: 768px, Desktop: 1440px)
 
 ## Requirement Types Classification
@@ -366,13 +366,13 @@ This matrix shows the relationship between requirements, design components, and 
 
 ### For UI/UX Requirements (UI)
 - Reference Figma designs for pixel-perfect implementation
-- Use Angular Material components mapped to Figma design system
+- Use Material-UI (MUI) components mapped to Figma design system
 - Extract colors, typography, and spacing from Figma Inspect
 - Implement responsive layouts for all breakpoints (Mobile, Tablet, Desktop)
 - Test UI on all supported browsers and devices
 
 ### For Validation Requirements (VR)
-- Implement validation on both client-side (Angular) and server-side (Lambda)
+- Implement validation on both client-side (React) and server-side (Lambda)
 - Use consistent error messages across client and server
 - Write property-based tests for validation logic
 - Display inline error messages as shown in Figma error states

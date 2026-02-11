@@ -9,9 +9,9 @@
 - Cloudformation/SAM
 
 ## Frontend
-- Angular 16+
+- React 18+
 - TypeScript
-- Angular Material
+- Material-UI (MUI)
 
 ## Database
 - PostgreSQL / Oracle
