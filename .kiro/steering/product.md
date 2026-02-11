@@ -3,10 +3,10 @@ inclusion: always
 ---
 
 # Product Definition
-## REXX Modernization to Java & Angular
+## REXX Modernization to Java & React
 
 ### Executive Summary
-This project aims to modernize legacy REXX mainframe applications into a modern, cloud-ready architecture using Java 17 with Spring Boot for the backend and Angular 16+ for the frontend. The modernization will preserve all existing business logic while improving scalability, user experience, maintainability, and enabling cloud deployment.
+This project aims to modernize legacy REXX mainframe applications into a modern, cloud-ready architecture using Java 17 with AWS Lambda for the backend and React 18+ for the frontend. The modernization will preserve all existing business logic while improving scalability, user experience, maintainability, and enabling cloud deployment.
 
 ### Project Vision
 Transform legacy REXX applications into a modern, maintainable, and scalable enterprise solution that:
@@ -27,7 +27,7 @@ Transform legacy REXX applications into a modern, maintainable, and scalable ent
 - **Talent Gap**: Declining pool of REXX developers
 
 #### Target State Benefits
-- **Modern Stack**: Java/Spring Boot and Angular with active community support
+- **Modern Stack**: Java/AWS Lambda and React with active community support
 - **Cloud Ready**: Containerized deployment on AWS/Azure/GCP
 - **Better UX**: Responsive web interface with modern design patterns
 - **API First**: RESTful APIs enabling integration with other systems
@@ -68,7 +68,7 @@ Transform legacy REXX applications into a modern, maintainable, and scalable ent
 - REXX business logic migration to Java services
 - Database migration from mainframe to PostgreSQL/Oracle
 - RESTful API development
-- Angular web application with responsive design
+- React web application with responsive design
 - Authentication/authorization implementation (JWT, OAuth2)
 - CI/CD pipeline setup
 - Docker containerization
@@ -177,21 +177,22 @@ Transform legacy REXX applications into a modern, maintainable, and scalable ent
 
 #### Backend
 - **Language**: Java 17 (LTS)
-- **Framework**: Spring Boot 3.x
-- **Data Access**: Spring Data JPA, Hibernate
-- **Security**: Spring Security, JWT, OAuth2
+- **Runtime**: AWS Lambda
+- **API Gateway**: AWS API Gateway
+- **Data Access**: JDBC, SQL2o, or lightweight ORM
+- **Security**: JWT, OAuth2, AWS IAM
 - **API**: RESTful APIs, OpenAPI 3.0 documentation
 - **Build Tool**: Maven or Gradle
-- **Testing**: JUnit 5, Mockito, Spring Boot Test
+- **Testing**: JUnit 5, Mockito, AWS Lambda Test utilities
 
 #### Frontend
-- **Framework**: Angular 16+
+- **Framework**: React 18+
 - **Language**: TypeScript 5.x
-- **UI Library**: Angular Material
-- **State Management**: NgRx or RxJS
-- **Forms**: Reactive Forms
-- **Testing**: Jasmine, Karma, Cypress
-- **Build Tool**: Angular CLI
+- **UI Library**: Material-UI (MUI)
+- **State Management**: Redux or Context API
+- **Forms**: React Hook Form or Formik
+- **Testing**: Jest, React Testing Library, Cypress
+- **Build Tool**: Vite or Create React App
 
 #### Database
 - **Primary**: PostgreSQL 15+ or Oracle 19c
