@@ -58,21 +58,33 @@ Write-Host "------------------------" -ForegroundColor Yellow
 
 $mvnPath = "C:\Users\CAESAR\Downloads\apache-maven-3.9.12-bin\apache-maven-3.9.12\bin\mvn.cmd"
 
-Write-Host "Building JAR file..." -ForegroundColor Gray
-& $mvnPath clean package -DskipTests
+# Get the ProfileManager-API directory (go up 2 levels from scripts, then into ProfileManager-API)
+$apiDir = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) "ProfileManager-API"
+Write-Host "API Directory: $apiDir" -ForegroundColor Gray
 
-if ($LASTEXITCODE -ne 0) {
+if (-not (Test-Path $apiDir)) {
+    Write-Host "ProfileManager-API directory not found at: $apiDir" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "Building JAR file..." -ForegroundColor Gray
+Push-Location $apiDir
+& $mvnPath clean package -DskipTests
+$buildResult = $LASTEXITCODE
+Pop-Location
+
+if ($buildResult -ne 0) {
     Write-Host "Build failed!" -ForegroundColor Red
     exit 1
 }
 
 # Find the shaded JAR file (Maven Shade plugin creates *-aws.jar)
-$jarFile = Get-ChildItem -Path "target" -Filter "*-aws.jar" | Select-Object -First 1 -ExpandProperty FullName
+$jarFile = Get-ChildItem -Path "$apiDir\target" -Filter "*-aws.jar" | Select-Object -First 1 -ExpandProperty FullName
 
 if (-not $jarFile) {
     Write-Host "Shaded JAR file not found in target directory!" -ForegroundColor Red
     Write-Host "Looking for files:" -ForegroundColor Yellow
-    Get-ChildItem -Path "target" -Filter "*.jar"
+    Get-ChildItem -Path "$apiDir\target" -Filter "*.jar"
     exit 1
 }
 
@@ -126,9 +138,18 @@ Write-Host "------------------------" -ForegroundColor Yellow
 Write-Host "Deploying CloudFormation stack..." -ForegroundColor Gray
 Write-Host "This will take 10-15 minutes..." -ForegroundColor Gray
 
+# Get the CloudFormation template path
+$templatePath = Join-Path (Split-Path $PSScriptRoot -Parent) "aws\lambda-infrastructure.yml"
+Write-Host "Template path: $templatePath" -ForegroundColor Gray
+
+if (-not (Test-Path $templatePath)) {
+    Write-Host "CloudFormation template not found at: $templatePath" -ForegroundColor Red
+    exit 1
+}
+
 $output = aws cloudformation create-stack `
     --stack-name $StackName `
-    --template-body file://aws/lambda-infrastructure.yml `
+    --template-body file://$templatePath `
     --parameters `
         ParameterKey=EnvironmentName,ParameterValue=$Environment `
         ParameterKey=DatabaseUsername,ParameterValue=$dbUsername `

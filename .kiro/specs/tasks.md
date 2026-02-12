@@ -7,14 +7,34 @@ This implementation plan breaks down the user authentication, registration, and 
 **Technology Stack:**
 - **Backend**: Java 17, AWS Lambda, API Gateway, Maven
 - **Frontend**: React 18+, TypeScript, Material-UI (MUI)
-- **Database**: PostgreSQL (Amazon RDS)
-- **Infrastructure**: AWS CDK (CloudFormation/SAM)
-- **DevOps**: GitHub, Jenkins/GitHub Actions, Docker, SonarQube
+- **Database**: PostgreSQL 16.11 (Amazon RDS)
+- **Infrastructure**: AWS CloudFormation (Lambda deployment)
+- **DevOps**: GitHub Actions, Docker, SonarQube
 - **Email Service**: AWS SES for email verification
 - **OAuth2**: Google and Amazon OAuth2 integration
 - **Design**: Figma for UI/UX specifications
 
 **Figma Design Reference**: #[[figma:https://www.figma.com/design/GGoFL7U4ljuiJxfQ1VBBbi/POC?node-id=1-1077&t=jPWNYDTKebx4Ygd4-1]]
+
+## Deployment Strategy
+
+**Infrastructure Setup (One-Time)**:
+- Use `ProfileManager-CDK/scripts/complete-lambda-deployment.ps1` for initial infrastructure deployment
+- CloudFormation template: `ProfileManager-CDK/aws/lambda-infrastructure.yml`
+- Creates: VPC, Lambda, API Gateway, RDS PostgreSQL, Secrets Manager, CloudWatch
+
+**Continuous Deployment (Automated)**:
+- GitHub Actions workflow: `ProfileManager-CDK/.github/workflows/ci-cd-lambda.yml`
+- Triggers: Push to main branch or PR merge
+- Pipeline: Build → Test → Upload to S3 → Update Lambda function
+- No infrastructure changes on each deployment, only Lambda code updates
+
+**Key Files**:
+- Infrastructure: `ProfileManager-CDK/aws/lambda-infrastructure.yml`
+- Deployment Script: `ProfileManager-CDK/scripts/complete-lambda-deployment.ps1`
+- CI/CD Pipeline: `ProfileManager-CDK/.github/workflows/ci-cd-lambda.yml`
+- Database Migrations: `ProfileManager-CDK/resources/db/migration/`
+- Application Config: `ProfileManager-CDK/resources/application-lambda.properties`
 
 ## Requirement Type Legend
 
@@ -51,50 +71,57 @@ Complete testing and deploy to production
 
 ## Tasks
 
-### Task 1: Set up AWS infrastructure using CDK
+### Task 1: Set up AWS Lambda infrastructure using CloudFormation
 **Phase**: 1 - Infrastructure & Security  
 **Requirement Types**: PR (Performance Requirement)  
 **Team**: @team:devops @component:devops-infra @priority:high  
 **Requirements**: All requirements (infrastructure foundation)
 
-**Description**: Create the foundational AWS infrastructure for the application using Infrastructure as Code (AWS CDK).
+**Description**: Deploy the foundational AWS Lambda infrastructure using the existing CloudFormation template and PowerShell deployment script.
+
+**Infrastructure Files**:
+- CloudFormation Template: `ProfileManager-CDK/aws/lambda-infrastructure.yml`
+- Deployment Script: `ProfileManager-CDK/scripts/complete-lambda-deployment.ps1`
+- GitHub Actions: `ProfileManager-CDK/.github/workflows/ci-cd-lambda.yml`
 
 **Sub-tasks**:
-- [x] 1.1 Create CDK project structure for infrastructure as code
-  - Initialize CDK project with TypeScript
-  - Define stack structure for dev, staging, prod environments
+- [x] 1.1 Review existing infrastructure template
+  - CloudFormation template includes: VPC, Lambda, API Gateway, RDS PostgreSQL 16.11, Secrets Manager, CloudWatch
+  - Deployment script handles: Maven build, S3 upload, stack creation, Lambda update
   
-- [ ] 1.2 Define RDS PostgreSQL instance with appropriate security groups
-  - Configure PostgreSQL 14+ instance
-  - Set up VPC and security groups
-  - Enable encryption at rest and in transit
+- [x] 1.2 Initial infrastructure deployment (one-time setup)
+  - Run `ProfileManager-CDK/scripts/complete-lambda-deployment.ps1`
+  - Provide parameters: stack name, environment, region, DB credentials
+  - Script will: build JAR, create S3 bucket, upload code, deploy CloudFormation stack
+  - Verify stack creation in AWS Console
+  - Note: This takes 10-15 minutes
   
-- [ ] 1.3 Configure RDS Proxy for connection pooling
-  - Set up RDS Proxy for Lambda connection pooling
-  - Configure connection limits and timeouts
+- [x] 1.3 Configure Secrets Manager values
+  - Update secrets in AWS Secrets Manager: `{environment}/lambda/user-registration/secrets`
+  - Set EMAIL_USERNAME and EMAIL_PASSWORD (for SES)
+  - Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
+  - Set AMAZON_CLIENT_ID and AMAZON_CLIENT_SECRET
+  - Set ENCRYPTION_KEY (base64 encoded 32-byte key)
+  - Use AWS Console or `ProfileManager-CDK/scripts/update-secrets.ps1`
   
-- [ ] 1.4 Set up Secrets Manager for database credentials, JWT secret, and OAuth2 secrets
-  - Create secrets for database credentials
-  - Create secret for JWT signing key
-  - Create secrets for Google OAuth2 client ID and secret
-  - Create secrets for Amazon OAuth2 client ID and secret
-  - Configure automatic rotation policies
+- [x] 1.4 Configure AWS SES for email sending
+  - Verify sender email address in SES console
+  - Request production access (move out of sandbox)
+  - Test email sending with verification template
+  - Configure SES region in Lambda environment variables
   
-- [ ] 1.5 Create API Gateway REST API with CORS configuration
-  - Define REST API resource
-  - Configure CORS for allowed origins
-  - Set up request/response models
+- [x] 1.5 Set up GitHub Actions for CI/CD (automated deployments)
+  - Configure GitHub secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+  - Workflow file: `ProfileManager-CDK/.github/workflows/ci-cd-lambda.yml`
+  - Triggers: Push to main branch automatically deploys to Lambda
+  - Pipeline: Build → Test → Upload to S3 → Update Lambda function
   
-- [ ] 1.6 Configure CloudWatch Log Groups for Lambda functions
-  - Create log groups for each Lambda function (including registration, verification, OAuth2)
-  - Set retention policies (30 days)
-  - Configure log insights queries
-  
-- [ ] 1.7 Set up AWS SES for email sending
-  - Configure SES in appropriate region
-  - Verify sender email address
-  - Move out of SES sandbox for production
-  - Configure email templates for verification emails
+- [ ] 1.6 Verify infrastructure deployment
+  - Test API endpoint: `curl {ApiEndpoint}/actuator/health`
+  - Check CloudWatch logs: `/aws/lambda/{FunctionName}`
+  - Verify RDS database connectivity
+  - Test Lambda function invocation
+  - Review CloudFormation stack outputs (API endpoint, DB endpoint, Lambda ARN)
 
 ---
 
@@ -106,19 +133,24 @@ Complete testing and deploy to production
 
 **Description**: Design and implement the PostgreSQL database schema to store user authentication, registration, and profile data.
 
+**Migration Directory**: `ProfileManager-CDK/resources/db/migration/`
+
 **Sub-tasks**:
 - [ ] 2.1 Create users table (Customer_Identity) with all required fields
   - **Requirement Type**: DR (Data Requirement) + SR (Security Requirement)
   - **Requirements**: Req 2 (Email Registration), Req 6 (Email Verification), Req 16 (Display Profile Fields), Req 18 (Title Field), Req 19 (Gender Field), Req 22 (Preferences)
+  - Create migration file: `V1__create_customer_identity_table.sql`
   - Define table structure with proper constraints (NOT NULL, CHECK, UNIQUE)
   - Add indexes for email, account_locked, verification_token, and provider fields
   - Include fields: id, title, first_name, last_name, gender, age, email, password_hash, address, account_locked, locked_until, email_verified, verification_token, verification_token_expiry, auth_provider, provider_id, created_at, updated_at
   - Add UNIQUE constraint on email column
   - Add CHECK constraint on age (18-120)
+  - Note: V1 migration already exists, review and update if needed
   
 - [ ] 2.2 Create user_preferences table
   - **Requirement Type**: DR (Data Requirement)
   - **Requirements**: Req 22 (Preferences Selection)
+  - Create migration file: `V2__create_user_preferences_table.sql`
   - Define foreign key relationship to users table with CASCADE delete
   - Add index on user_id for join performance
   - Include fields: user_id, preference
@@ -126,6 +158,7 @@ Complete testing and deploy to production
 - [ ] 2.3 Create login_attempts table
   - **Requirement Type**: SR (Security Requirement) + DR (Data Requirement)
   - **Requirements**: Req 14 (Account Locking)
+  - Create migration file: `V3__create_login_attempts_table.sql`
   - Define table for tracking authentication attempts
   - Add indexes for email and timestamp queries
   - Include fields: id, email, timestamp, successful, ip_address
@@ -133,15 +166,15 @@ Complete testing and deploy to production
 - [ ] 2.4 Create token_blacklist table for logout
   - **Requirement Type**: SR (Security Requirement) + DR (Data Requirement)
   - **Requirements**: Req 9 (Successful Login - logout flow)
+  - Create migration file: `V4__create_token_blacklist_table.sql`
   - Define table for storing invalidated JWT tokens
   - Add index on token_hash and expiry
   - Include fields: id, token_hash, expiry, created_at
   
-- [ ] 2.5 Create database migration scripts
-  - **Requirement Type**: DR (Data Requirement)
-  - Write SQL scripts for schema creation
-  - Add rollback scripts for each migration
-  - Test migrations in dev environment
+- [x] 2.5 Set up database migration structure
+  - Migration directory created: `ProfileManager-CDK/resources/db/migration/`
+  - Rollback directory created: `ProfileManager-CDK/resources/db/rollback/` (if needed)
+  - Use Flyway or Liquibase for migration execution
 
 ---
 
@@ -1135,43 +1168,45 @@ Complete testing and deploy to production
 
 ---
 
-### Task 19: Create deployment pipeline
+### Task 19: Configure deployment pipeline
 **Phase**: 7 - Testing & Deployment  
 **Requirement Types**: PR (Performance Requirement)  
 **Team**: @team:devops @component:devops-cicd  
 **Requirements**: All requirements (deployment and monitoring)
 
-**Description**: Set up CI/CD pipeline for automated build, test, and deployment.
+**Description**: Configure and validate the CI/CD pipeline for automated build, test, and deployment using existing GitHub Actions workflows.
+
+**Pipeline Files**:
+- Lambda Pipeline: `ProfileManager-CDK/.github/workflows/ci-cd-lambda.yml`
+- Setup Workflow: `ProfileManager-CDK/.github/workflows/setup-infrastructure.yml`
 
 **Sub-tasks**:
-- [ ] 19.1 Configure build pipeline
+- [ ] 19.1 Configure GitHub Actions secrets
   - **Requirement Type**: PR (Performance Requirement)
   - **Requirements**: All requirements (deployment)
-  - Set up GitHub Actions or Jenkins pipeline
-  - Configure Java build with Maven (per Java conventions)
-  - Configure React build with npm
-  - Run unit tests and property tests
-  - Generate code coverage reports (target 70% minimum)
-  - Run SonarQube analysis for code quality
-  - Fail build if coverage < 70% or quality gate fails
+  - Add AWS_ACCESS_KEY_ID to GitHub repository secrets
+  - Add AWS_SECRET_ACCESS_KEY to GitHub repository secrets
+  - Verify secrets are accessible in workflow runs
+  - Use `ProfileManager-CDK/scripts/setup-github-secrets.ps1` for guidance
   
-- [ ] 19.2 Configure Lambda deployment
+- [ ] 19.2 Configure Lambda deployment pipeline
   - **Requirement Type**: PR (Performance Requirement)
   - **Requirements**: All backend requirements
-  - Package Lambda functions with dependencies using Maven
-  - Deploy Lambda functions to AWS using AWS CDK
-  - Update Lambda environment variables (DB_SECRET_ARN, JWT_SECRET_ARN, SES_FROM_EMAIL, etc.)
-  - Deploy Lambda layer with shared utilities
-  - Run smoke tests after deployment
+  - Pipeline file: `ProfileManager-CDK/.github/workflows/ci-cd-lambda.yml`
+  - Triggers: Push to main branch, Pull requests to main
+  - Build steps: Maven clean package, Run unit tests, Run integration tests, Generate coverage report
+  - Deploy steps: Upload JAR to S3, Update Lambda function code
+  - Verify pipeline runs successfully on push to main
+  - Monitor CloudWatch logs after deployment
   
-- [ ] 19.3 Configure frontend deployment
+- [ ] 19.3 Configure frontend deployment (if separate from Lambda)
   - **Requirement Type**: PR (Performance Requirement)
   - **Requirements**: All frontend requirements
   - Build React application for production (npm run build)
   - Deploy to S3 bucket with static website hosting
-  - Configure CloudFront distribution for CDN
-  - Configure environment-specific API Gateway URLs
-  - Invalidate CloudFront cache after deployment
+  - Configure CloudFront distribution for CDN (optional)
+  - Configure environment-specific API Gateway URLs in .env files
+  - Invalidate CloudFront cache after deployment (if using CloudFront)
   
 - [ ] 19.4 Set up monitoring and alerts
   - **Requirement Type**: PR (Performance Requirement)
@@ -1182,7 +1217,8 @@ Complete testing and deploy to production
   - Monitor SES email delivery metrics
   - Create CloudWatch dashboard for system health
   - Set up SNS notifications for critical alerts
-  - Configure log retention policies (30 days)
+  - Configure log retention policies (30 days) - already set in CloudFormation template
+  - Use `ProfileManager-CDK/scripts/check-lambda-logs.ps1` for log monitoring
 
 ---
 
