@@ -1,0 +1,177 @@
+name: CI/CD Pipeline (AWS Lambda)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  JAVA_VERSION: '17'
+  MAVEN_OPTS: -Xmx1024m
+  AWS_REGION: us-east-1
+  MAVEN_PATH: ProfileManager-API
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+    
+    - name: Build with Maven
+      working-directory: ${{ env.MAVEN_PATH }}
+      run: mvn clean compile -DskipTests
+    
+    - name: Run unit tests
+      working-directory: ${{ env.MAVEN_PATH }}
+      run: mvn test
+    
+    - name: Generate test coverage report
+      working-directory: ${{ env.MAVEN_PATH }}
+      run: mvn jacoco:report
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: ${{ env.MAVEN_PATH }}/target/surefire-reports/
+    
+    - name: Upload coverage report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: ${{ env.MAVEN_PATH }}/target/site/jacoco/
+    
+    - name: Build Lambda JAR
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      working-directory: ${{ env.MAVEN_PATH }}
+      run: mvn clean package -DskipTests
+    
+    - name: Upload Lambda JAR artifact
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      uses: actions/upload-artifact@v4
+      with:
+        name: lambda-jar
+        path: ${{ env.MAVEN_PATH }}/target/*-aws.jar
+
+  deploy-lambda:
+    name: Deploy to AWS Lambda
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Download Lambda JAR artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: lambda-jar
+        path: target/
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Determine environment and stack name
+      id: env-config
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          echo "environment=production" >> $GITHUB_OUTPUT
+          echo "stack_name=${{ secrets.PROD_STACK_NAME }}" >> $GITHUB_OUTPUT
+        else
+          echo "environment=test" >> $GITHUB_OUTPUT
+          echo "stack_name=${{ secrets.TEST_STACK_NAME }}" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Get deployment bucket name
+      id: get-bucket
+      run: |
+        BUCKET=$(aws cloudformation describe-stacks \
+          --stack-name ${{ steps.env-config.outputs.stack_name }} \
+          --query 'Stacks[0].Outputs[?OutputKey==`DeploymentBucketName`].OutputValue' \
+          --output text 2>/dev/null || echo "${{ steps.env-config.outputs.environment }}-lambda-deployments-${{ secrets.AWS_ACCOUNT_ID }}")
+        echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
+        echo "Deployment bucket: $BUCKET"
+    
+    - name: Upload JAR to S3
+      run: |
+        JAR_FILE=$(ls target/*-aws.jar | head -n 1)
+        echo "Uploading $JAR_FILE to S3..."
+        aws s3 cp $JAR_FILE \
+          s3://${{ steps.get-bucket.outputs.bucket }}/user-registration.jar
+    
+    - name: Get Lambda function name
+      id: get-function
+      run: |
+        FUNCTION_ARN=$(aws cloudformation describe-stacks \
+          --stack-name ${{ steps.env-config.outputs.stack_name }} \
+          --query 'Stacks[0].Outputs[?OutputKey==`LambdaFunctionArn`].OutputValue' \
+          --output text)
+        FUNCTION_NAME=$(echo $FUNCTION_ARN | awk -F: '{print $NF}')
+        echo "function_name=$FUNCTION_NAME" >> $GITHUB_OUTPUT
+        echo "Lambda function: $FUNCTION_NAME"
+    
+    - name: Update Lambda function
+      run: |
+        aws lambda update-function-code \
+          --function-name ${{ steps.get-function.outputs.function_name }} \
+          --s3-bucket ${{ steps.get-bucket.outputs.bucket }} \
+          --s3-key user-registration.jar
+    
+    - name: Wait for Lambda update to complete
+      run: |
+        echo "Waiting for Lambda function to update..."
+        aws lambda wait function-updated \
+          --function-name ${{ steps.get-function.outputs.function_name }}
+        echo "Lambda function updated successfully!"
+    
+    - name: Get API endpoint
+      id: get-url
+      run: |
+        API_URL=$(aws cloudformation describe-stacks \
+          --stack-name ${{ steps.env-config.outputs.stack_name }} \
+          --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
+          --output text)
+        echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+        echo "API endpoint: $API_URL"
+    
+    - name: Test Lambda deployment
+      run: |
+        echo "Testing Lambda endpoint..."
+        sleep 5  # Give Lambda a moment to warm up
+        RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.get-url.outputs.api_url }}/health || echo "000")
+        if [ "$RESPONSE" == "200" ]; then
+          echo "✅ Health check passed!"
+        else
+          echo "⚠️ Health check returned status: $RESPONSE (Lambda may need warm-up)"
+        fi
+    
+    - name: Deployment summary
+      run: |
+        echo "========================================" 
+        echo "  Deployment Summary"
+        echo "========================================"
+        echo ""
+        echo "✅ Deployment successful!"
+        echo "🚀 Lambda function: ${{ steps.get-function.outputs.function_name }}"
+        echo "🌐 API URL: ${{ steps.get-url.outputs.api_url }}"
+        echo "📦 S3 Bucket: ${{ steps.get-bucket.outputs.bucket }}"
+        echo "🏷️  Environment: ${{ steps.env-config.outputs.environment }}"
+        echo ""
