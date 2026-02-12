@@ -1,0 +1,141 @@
+name: Setup Frontend Infrastructure (One-Time)
+
+# This workflow is manually triggered to set up infrastructure for the first time
+# It should only be run once per environment
+on:
+  workflow_dispatch:
+    inputs:
+      project_name:
+        description: 'Project name (used for resource naming)'
+        required: true
+        default: 'user-registration'
+      environment:
+        description: 'Environment name'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+          - development
+      aws_region:
+        description: 'AWS region'
+        required: true
+        default: 'us-east-1'
+      domain_name:
+        description: 'Custom domain name (optional, e.g., app.example.com)'
+        required: false
+        default: ''
+      acm_certificate_arn:
+        description: 'ACM certificate ARN (required if using custom domain)'
+        required: false
+        default: ''
+      route53_zone_id:
+        description: 'Route53 hosted zone ID (required if using custom domain)'
+        required: false
+        default: ''
+
+env:
+  TF_VERSION: '1.6.0'
+
+jobs:
+  setup-infrastructure:
+    name: Deploy Frontend Infrastructure
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: terraform/frontend
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ github.event.inputs.aws_region }}
+    
+    - name: Create terraform.tfvars
+      run: |
+        cat > terraform.tfvars <<EOF
+        aws_region             = "${{ github.event.inputs.aws_region }}"
+        project_name           = "${{ github.event.inputs.project_name }}"
+        environment            = "${{ github.event.inputs.environment }}"
+        domain_name            = "${{ github.event.inputs.domain_name }}"
+        acm_certificate_arn    = "${{ github.event.inputs.acm_certificate_arn }}"
+        route53_zone_id        = "${{ github.event.inputs.route53_zone_id }}"
+        cloudfront_price_class = "PriceClass_100"
+        EOF
+    
+    - name: Terraform Init
+      run: terraform init
+    
+    - name: Terraform Validate
+      run: terraform validate
+    
+    - name: Terraform Plan
+      run: terraform plan -out=tfplan
+    
+    - name: Terraform Apply
+      run: terraform apply -auto-approve tfplan
+    
+    - name: Get Terraform Outputs
+      id: tf-outputs
+      run: |
+        echo "s3_bucket_name=$(terraform output -raw s3_bucket_name)" >> $GITHUB_OUTPUT
+        echo "cloudfront_distribution_id=$(terraform output -raw cloudfront_distribution_id)" >> $GITHUB_OUTPUT
+        echo "cloudfront_domain_name=$(terraform output -raw cloudfront_domain_name)" >> $GITHUB_OUTPUT
+        echo "website_url=$(terraform output -raw website_url)" >> $GITHUB_OUTPUT
+    
+    - name: Deployment Summary
+      run: |
+        echo "=========================================="
+        echo "✅ Frontend Infrastructure Deployed!"
+        echo "=========================================="
+        echo ""
+        echo "📋 Infrastructure Details:"
+        echo "  Project: ${{ github.event.inputs.project_name }}"
+        echo "  Environment: ${{ github.event.inputs.environment }}"
+        echo "  Region: ${{ github.event.inputs.aws_region }}"
+        echo ""
+        echo "📦 Resources Created:"
+        echo "  S3 Bucket: ${{ steps.tf-outputs.outputs.s3_bucket_name }}"
+        echo "  CloudFront Distribution: ${{ steps.tf-outputs.outputs.cloudfront_distribution_id }}"
+        echo "  CloudFront Domain: ${{ steps.tf-outputs.outputs.cloudfront_domain_name }}"
+        echo ""
+        echo "🌐 Website URL:"
+        echo "  ${{ steps.tf-outputs.outputs.website_url }}"
+        echo ""
+        echo "🚀 Next Steps:"
+        echo "  1. Add GitHub Secrets:"
+        echo "     - S3_BUCKET_NAME: ${{ steps.tf-outputs.outputs.s3_bucket_name }}"
+        echo "     - CLOUDFRONT_DISTRIBUTION_ID: ${{ steps.tf-outputs.outputs.cloudfront_distribution_id }}"
+        echo "     - WEBSITE_URL: ${{ steps.tf-outputs.outputs.website_url }}"
+        echo "     - API_URL: [Your backend API URL]"
+        echo ""
+        echo "  2. Push code to main branch to trigger automatic deployment"
+        echo ""
+        echo "=========================================="
+    
+    - name: Save outputs to file
+      run: |
+        cat > infrastructure-outputs.txt <<EOF
+        S3_BUCKET_NAME=${{ steps.tf-outputs.outputs.s3_bucket_name }}
+        CLOUDFRONT_DISTRIBUTION_ID=${{ steps.tf-outputs.outputs.cloudfront_distribution_id }}
+        WEBSITE_URL=${{ steps.tf-outputs.outputs.website_url }}
+        EOF
+    
+    - name: Upload outputs
+      uses: actions/upload-artifact@v4
+      with:
+        name: infrastructure-outputs
+        path: terraform/frontend/infrastructure-outputs.txt
+        retention-days: 30

@@ -1,0 +1,95 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  AWS_REGION: us-east-1
+  NODE_VERSION: '18'
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run linter
+      run: npm run lint --if-present
+    
+    - name: Run tests
+      run: npm test --if-present
+      env:
+        CI: true
+    
+    - name: Build application
+      run: npm run build
+      env:
+        REACT_APP_API_URL: ${{ secrets.API_URL }}
+        # Add other environment variables as needed
+        # REACT_APP_ENV: production
+        # VUE_APP_API_URL: ${{ secrets.API_URL }}
+        # VITE_API_URL: ${{ secrets.API_URL }}
+    
+    - name: Upload build artifact
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-build
+        path: dist/  # Change to 'build/' for Create React App
+        retention-days: 1
+
+  deploy:
+    name: Deploy to AWS
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Download build artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: frontend-build
+        path: dist/  # Change to 'build/' for Create React App
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Deploy to S3
+      run: |
+        aws s3 sync dist/ s3://${{ secrets.S3_BUCKET_NAME }}/ --delete
+        # For Create React App, use: aws s3 sync build/ s3://${{ secrets.S3_BUCKET_NAME }}/ --delete
+    
+    - name: Invalidate CloudFront cache
+      run: |
+        aws cloudfront create-invalidation \
+          --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+          --paths "/*"
+    
+    - name: Deployment summary
+      run: |
+        echo "✅ Deployment successful!"
+        echo "🌐 Website URL: ${{ secrets.WEBSITE_URL }}"
+        echo "📦 S3 Bucket: ${{ secrets.S3_BUCKET_NAME }}"
+        echo "🚀 CloudFront Distribution: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}"

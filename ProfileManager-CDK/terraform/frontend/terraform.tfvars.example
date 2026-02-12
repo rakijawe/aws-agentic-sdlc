@@ -1,0 +1,24 @@
+# Example Terraform Variables File
+# Copy this file to terraform.tfvars and update with your values
+
+aws_region  = "us-east-1"
+project_name = "user-registration"
+environment  = "production"
+
+# Optional: Custom domain configuration
+# domain_name          = "app.example.com"
+# acm_certificate_arn  = "arn:aws:acm:us-east-1:123456789012:certificate/xxxxx"
+# route53_zone_id      = "Z1234567890ABC"
+
+# CloudFront price class
+# PriceClass_100: US, Canada, Europe
+# PriceClass_200: US, Canada, Europe, Asia, Middle East, Africa
+# PriceClass_All: All edge locations
+cloudfront_price_class = "PriceClass_100"
+
+# Additional tags
+tags = {
+  Project   = "User Registration"
+  Team      = "Engineering"
+  ManagedBy = "Terraform"
+}
