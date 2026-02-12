@@ -93,8 +93,8 @@ jobs:
       id: env-config
       run: |
         if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-          echo "environment=production" >> $GITHUB_OUTPUT
-          echo "stack_name=${{ secrets.PROD_STACK_NAME }}" >> $GITHUB_OUTPUT
+          echo "environment=test" >> $GITHUB_OUTPUT
+          echo "stack_name=${{ secrets.TEST_STACK_NAME }}" >> $GITHUB_OUTPUT
         else
           echo "environment=test" >> $GITHUB_OUTPUT
           echo "stack_name=${{ secrets.TEST_STACK_NAME }}" >> $GITHUB_OUTPUT
