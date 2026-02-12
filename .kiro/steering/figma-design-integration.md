@@ -14,7 +14,7 @@ Figma serves as the single source of truth for UI/UX design. All frontend implem
 
 ### Project Structure
 ```
-REXX Modernization/
+Enterprise Application/
 ├── 01-Design System/
 │   ├── Components Library
 │   ├── Color Palette

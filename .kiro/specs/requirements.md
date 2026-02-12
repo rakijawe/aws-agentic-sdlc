@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This document specifies the requirements for a user authentication, registration, and profile management system as part of the REXX modernization initiative. The system provides secure user registration with email and social login options, login functionality with validation and account protection, along with comprehensive profile management capabilities for authenticated users. This system replaces legacy REXX authentication and profile management modules with a modern Java backend and React frontend.
+This document specifies the requirements for a user authentication, registration, and profile management system. The system provides secure user registration with email and social login options, login functionality with validation and account protection, along with comprehensive profile management capabilities for authenticated users.
 
 ## Figma Design Reference
 

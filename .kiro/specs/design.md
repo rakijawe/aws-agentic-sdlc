@@ -2,7 +2,7 @@
 
 ## Overview
 
-This design document describes the architecture and implementation approach for a user authentication, registration, and profile management system as part of the REXX modernization initiative. The system consists of:
+This design document describes the architecture and implementation approach for a user authentication, registration, and profile management system. The system consists of:
 
 1. **Registration Module**: Handles new user account creation with email/password or social login (Google, Amazon OAuth2)
 2. **Authentication Module**: Handles user login with email/password credentials, validation, and account security

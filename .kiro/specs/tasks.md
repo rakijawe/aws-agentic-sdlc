@@ -2,7 +2,7 @@
 
 ## Overview
 
-This implementation plan breaks down the user authentication, registration, and profile management system into discrete, actionable tasks as part of the REXX modernization initiative. Each task is mapped to specific requirement types to ensure complete traceability from requirements through implementation.
+This implementation plan breaks down the user authentication, registration, and profile management system into discrete, actionable tasks. Each task is mapped to specific requirement types to ensure complete traceability from requirements through implementation.
 
 **Technology Stack:**
 - **Backend**: Java 17, AWS Lambda, API Gateway, Maven
@@ -1481,7 +1481,6 @@ All property-based tests validate universal correctness properties across random
 - **Security**: Follow OWASP security best practices
 - **Logging**: Use SLF4J for all backend logging (per Java conventions)
 - **REST Standards**: Follow proper HTTP status codes and versioning
-- **REXX Modernization**: Part of REXX to Java & React modernization initiative
 - **Email Service**: AWS SES for email verification
 - **OAuth2**: Google and Amazon OAuth2 integration
 

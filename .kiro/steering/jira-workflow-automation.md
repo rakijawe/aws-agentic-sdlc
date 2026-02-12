@@ -337,19 +337,19 @@ Maps to Jira Issue:
 
 ```jql
 # Unassigned backend tasks
-project = REXX AND component = backend-api AND assignee is EMPTY
+project = MYPROJECT AND component = backend-api AND assignee is EMPTY
 
 # Frontend tasks ready for testing
-project = REXX AND label = frontend AND status = "Ready for Testing"
+project = MYPROJECT AND label = frontend AND status = "Ready for Testing"
 
 # DevOps tasks in progress
-project = REXX AND component in (devops-infra, devops-cicd) AND status = "In Progress"
+project = MYPROJECT AND component in (devops-infra, devops-cicd) AND status = "In Progress"
 
 # QA backlog
-project = REXX AND component = qa-testing AND status = "To Do"
+project = MYPROJECT AND component = qa-testing AND status = "To Do"
 
 # Cross-team issues
-project = REXX AND component in (backend-api, frontend-ui) AND status != Done
+project = MYPROJECT AND component in (backend-api, frontend-ui) AND status != Done
 ```
 
 ## Troubleshooting
