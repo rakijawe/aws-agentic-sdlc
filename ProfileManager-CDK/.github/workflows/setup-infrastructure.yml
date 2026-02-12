@@ -1,0 +1,196 @@
+name: Setup AWS Infrastructure (One-Time)
+
+# This workflow is manually triggered to set up infrastructure for the first time
+# It should only be run once per environment
+on:
+  workflow_dispatch:
+    inputs:
+      stack_name:
+        description: 'CloudFormation stack name'
+        required: true
+        default: 'user-registration-lambda'
+      environment:
+        description: 'Environment name'
+        required: true
+        default: 'production'
+      db_username:
+        description: 'Database username'
+        required: true
+        default: 'postgres'
+      db_password:
+        description: 'Database password (min 8 characters)'
+        required: true
+        type: string
+      aws_region:
+        description: 'AWS region'
+        required: true
+        default: 'us-east-1'
+
+env:
+  JAVA_VERSION: '17'
+  MAVEN_OPTS: -Xmx1024m
+
+jobs:
+  setup-infrastructure:
+    name: Deploy AWS Infrastructure
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ github.event.inputs.aws_region }}
+    
+    - name: Get AWS Account ID
+      id: get-account
+      run: |
+        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        echo "account_id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+        echo "AWS Account: $ACCOUNT_ID"
+    
+    - name: Build application
+      run: mvn clean package -DskipTests
+    
+    - name: Find Lambda JAR
+      id: find-jar
+      run: |
+        JAR_FILE=$(ls target/*-aws.jar | head -n 1)
+        if [ -z "$JAR_FILE" ]; then
+          echo "Error: Lambda JAR not found!"
+          exit 1
+        fi
+        echo "jar_file=$JAR_FILE" >> $GITHUB_OUTPUT
+        echo "Found JAR: $JAR_FILE"
+    
+    - name: Create S3 deployment bucket
+      id: create-bucket
+      run: |
+        BUCKET_NAME="${{ github.event.inputs.environment }}-lambda-deployments-${{ steps.get-account.outputs.account_id }}"
+        echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+        
+        # Check if bucket exists
+        if aws s3 ls "s3://$BUCKET_NAME" 2>&1 | grep -q 'NoSuchBucket'; then
+          echo "Creating S3 bucket: $BUCKET_NAME"
+          aws s3 mb "s3://$BUCKET_NAME" --region ${{ github.event.inputs.aws_region }}
+          echo "Bucket created successfully"
+        else
+          echo "Bucket already exists: $BUCKET_NAME"
+        fi
+    
+    - name: Upload JAR to S3
+      run: |
+        echo "Uploading JAR to S3..."
+        aws s3 cp ${{ steps.find-jar.outputs.jar_file }} \
+          "s3://${{ steps.create-bucket.outputs.bucket_name }}/user-registration.jar" \
+          --region ${{ github.event.inputs.aws_region }}
+        echo "Upload successful"
+    
+    - name: Deploy CloudFormation stack
+      id: deploy-stack
+      run: |
+        echo "Deploying CloudFormation stack: ${{ github.event.inputs.stack_name }}"
+        echo "This will take 10-15 minutes..."
+        
+        aws cloudformation create-stack \
+          --stack-name ${{ github.event.inputs.stack_name }} \
+          --template-body file://aws/lambda-infrastructure.yml \
+          --parameters \
+            ParameterKey=EnvironmentName,ParameterValue=${{ github.event.inputs.environment }} \
+            ParameterKey=DatabaseUsername,ParameterValue=${{ github.event.inputs.db_username }} \
+            ParameterKey=DatabasePassword,ParameterValue=${{ github.event.inputs.db_password }} \
+            ParameterKey=DeploymentBucketName,ParameterValue=${{ steps.create-bucket.outputs.bucket_name }} \
+          --capabilities CAPABILITY_IAM \
+          --region ${{ github.event.inputs.aws_region }}
+        
+        echo "Waiting for stack creation to complete..."
+        aws cloudformation wait stack-create-complete \
+          --stack-name ${{ github.event.inputs.stack_name }} \
+          --region ${{ github.event.inputs.aws_region }}
+        
+        echo "Stack created successfully!"
+    
+    - name: Get stack outputs
+      id: get-outputs
+      run: |
+        API_ENDPOINT=$(aws cloudformation describe-stacks \
+          --stack-name ${{ github.event.inputs.stack_name }} \
+          --region ${{ github.event.inputs.aws_region }} \
+          --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
+          --output text)
+        
+        DB_ENDPOINT=$(aws cloudformation describe-stacks \
+          --stack-name ${{ github.event.inputs.stack_name }} \
+          --region ${{ github.event.inputs.aws_region }} \
+          --query 'Stacks[0].Outputs[?OutputKey==`DatabaseEndpoint`].OutputValue' \
+          --output text)
+        
+        LAMBDA_ARN=$(aws cloudformation describe-stacks \
+          --stack-name ${{ github.event.inputs.stack_name }} \
+          --region ${{ github.event.inputs.aws_region }} \
+          --query 'Stacks[0].Outputs[?OutputKey==`LambdaFunctionArn`].OutputValue' \
+          --output text)
+        
+        echo "api_endpoint=$API_ENDPOINT" >> $GITHUB_OUTPUT
+        echo "db_endpoint=$DB_ENDPOINT" >> $GITHUB_OUTPUT
+        echo "lambda_arn=$LAMBDA_ARN" >> $GITHUB_OUTPUT
+    
+    - name: Update Lambda function code
+      run: |
+        FUNCTION_NAME=$(echo "${{ steps.get-outputs.outputs.lambda_arn }}" | awk -F: '{print $NF}')
+        
+        echo "Updating Lambda function: $FUNCTION_NAME"
+        aws lambda update-function-code \
+          --function-name $FUNCTION_NAME \
+          --s3-bucket ${{ steps.create-bucket.outputs.bucket_name }} \
+          --s3-key user-registration.jar \
+          --region ${{ github.event.inputs.aws_region }}
+        
+        echo "Waiting for Lambda update to complete..."
+        aws lambda wait function-updated \
+          --function-name $FUNCTION_NAME \
+          --region ${{ github.event.inputs.aws_region }}
+        
+        echo "Lambda function updated successfully!"
+    
+    - name: Test deployment
+      run: |
+        echo "Testing API endpoint..."
+        curl -f "${{ steps.get-outputs.outputs.api_endpoint }}/actuator/health" || echo "Health check may need warm-up"
+    
+    - name: Deployment summary
+      run: |
+        echo "=========================================="
+        echo "✅ Infrastructure Deployment Complete!"
+        echo "=========================================="
+        echo ""
+        echo "📋 Stack Details:"
+        echo "  Stack Name: ${{ github.event.inputs.stack_name }}"
+        echo "  Environment: ${{ github.event.inputs.environment }}"
+        echo "  Region: ${{ github.event.inputs.aws_region }}"
+        echo ""
+        echo "🌐 Endpoints:"
+        echo "  API: ${{ steps.get-outputs.outputs.api_endpoint }}"
+        echo "  Database: ${{ steps.get-outputs.outputs.db_endpoint }}"
+        echo ""
+        echo "📦 Resources:"
+        echo "  Lambda: ${{ steps.get-outputs.outputs.lambda_arn }}"
+        echo "  S3 Bucket: ${{ steps.create-bucket.outputs.bucket_name }}"
+        echo ""
+        echo "🚀 Next Steps:"
+        echo "  1. Update secrets in AWS Secrets Manager"
+        echo "  2. Test API: curl ${{ steps.get-outputs.outputs.api_endpoint }}/actuator/health"
+        echo "  3. Push code to main branch for automated deployments"
+        echo ""
+        echo "=========================================="
