@@ -137,7 +137,7 @@ Complete testing and deploy to production
   - Add index on token_hash and expiry
   - Include fields: id, token_hash, expiry, created_at
   
-- [ ] 2.5 Create database migration scripts
+- [x] 2.5 Create database migration scripts
   - **Requirement Type**: DR (Data Requirement)
   - Write SQL scripts for schema creation
   - Add rollback scripts for each migration
@@ -546,7 +546,7 @@ Complete testing and deploy to production
 **Description**: Implement the Lambda function that retrieves user profile data.
 
 **Sub-tasks**:
-- [ ] 9.1 Create Lambda handler class
+- [x] 9.1 Create Lambda handler class
   - **Requirement Type**: UI (UI/UX Requirement) + DR (Data Requirement)
   - **Requirements**: Req 15 (View Profile Page), Req 16 (Display Profile Fields)
   - Create GetProfileHandler class extending RequestHandler
@@ -554,7 +554,7 @@ Complete testing and deploy to production
   - Extract user ID from JWT token (validated by API Gateway authorizer)
   - Set up CloudWatch logging with SLF4J
   
-- [ ] 9.2 Implement profile retrieval logic
+- [x] 9.2 Implement profile retrieval logic
   - **Requirement Type**: DR (Data Requirement)
   - **Requirements**: Req 15 (View Profile Page), Req 16 (Display Profile Fields)
   - Query user profile from database by user ID using UserRepository
@@ -563,7 +563,7 @@ Complete testing and deploy to production
   - Format profile data as JSON response with all 8 fields
   - Return 200 with profile data
   
-- [ ]* 9.3 Write unit tests for profile retrieval
+- [x]* 9.3 Write unit tests for profile retrieval
   - **Requirement Type**: DR (Data Requirement)
   - **Requirements**: Req 15, Req 16
   - Test successful profile fetch with all fields
@@ -583,7 +583,7 @@ Complete testing and deploy to production
 **Description**: Implement the Lambda function that updates user profile data with comprehensive validation.
 
 **Sub-tasks**:
-- [ ] 10.1 Create Lambda handler class and request parsing
+- [x] 10.1 Create Lambda handler class and request parsing
   - **Requirement Type**: FR (Functional Requirement)
   - **Requirements**: Req 23 (Save Profile)
   - Create UpdateProfileHandler class extending RequestHandler
@@ -592,7 +592,7 @@ Complete testing and deploy to production
   - Parse ProfileUpdateRequest from request body
   - Set up CloudWatch logging with SLF4J
   
-- [ ] 10.2 Implement profile validation logic
+- [x] 10.2 Implement profile validation logic
   - **Requirement Type**: VR (Validation Requirement) + BR (Business Rule)
   - **Requirements**: Req 17 (Mandatory Fields), Req 19 (Gender), Req 20 (Age), Req 21 (Email), Req 22 (Preferences), Req 25 (Email Policy)
   - Validate all mandatory fields: firstName, lastName, email, gender (non-empty)
@@ -603,7 +603,7 @@ Complete testing and deploy to production
   - Check email modification policy from GetEmailPolicyHandler
   - Return 400 with field-specific error messages on validation failure
   
-- [ ] 10.3 Implement profile update logic
+- [x] 10.3 Implement profile update logic
   - **Requirement Type**: FR (Functional Requirement) + DR (Data Requirement)
   - **Requirements**: Req 23 (Save Profile)
   - Update user record in users table using UserRepository
@@ -638,7 +638,7 @@ Complete testing and deploy to production
   - Test with randomly generated valid profiles
   - Minimum 100 iterations
   
-- [ ]* 10.7 Write unit tests for profile update
+- [x]* 10.7 Write unit tests for profile update
   - **Requirement Type**: VR (Validation Requirement) + FR (Functional Requirement)
   - **Requirements**: Req 17, Req 19, Req 20, Req 21, Req 22, Req 23, Req 25
   - Test successful profile update with all valid data
@@ -667,7 +667,7 @@ Complete testing and deploy to production
   - Return 200 success response
   - Use SLF4J for logging logout events
   
-- [ ] 11.2 Create GetEmailPolicyHandler Lambda function
+- [x] 11.2 Create GetEmailPolicyHandler Lambda function
   - **Requirement Type**: BR (Business Rule) + UI (UI/UX Requirement)
   - **Requirements**: Req 25 (Read Only Email Rule)
   - Create GetEmailPolicyHandler class extending RequestHandler
@@ -676,7 +676,7 @@ Complete testing and deploy to production
   - Return 200 with policy data
   - Cache policy response in frontend
   
-- [ ]* 11.3 Write unit tests for supporting functions
+- [x]* 11.3 Write unit tests for supporting functions
   - **Requirement Type**: FR (Functional Requirement) + BR (Business Rule)
   - **Requirements**: Req 9, Req 25
   - Test logout handler with valid token
