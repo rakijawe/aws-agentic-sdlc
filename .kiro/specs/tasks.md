@@ -19,20 +19,20 @@ This implementation plan breaks down the user authentication, registration, and 
 ## Deployment Strategy
 
 **Infrastructure Setup (One-Time)**:
-- Use `ProfileManager-CDK/scripts/complete-lambda-deployment.ps1` for initial infrastructure deployment
-- CloudFormation template: `ProfileManager-CDK/aws/lambda-infrastructure.yml`
+- Create and run deployment script: `ProfileManager-CDK/scripts/complete-lambda-deployment.ps1`
+- Uses CloudFormation template: `ProfileManager-CDK/aws/lambda-infrastructure.yml`
 - Creates: VPC, Lambda, API Gateway, RDS PostgreSQL, Secrets Manager, CloudWatch
 
 **Continuous Deployment (Automated)**:
-- GitHub Actions workflow: `ProfileManager-CDK/.github/workflows/ci-cd-lambda.yml`
+- GitHub Actions workflow: `.github/workflows/ci-cd-lambda.yml`
 - Triggers: Push to main branch or PR merge
 - Pipeline: Build → Test → Upload to S3 → Update Lambda function
 - No infrastructure changes on each deployment, only Lambda code updates
 
-**Key Files**:
+**Key Files to Create**:
 - Infrastructure: `ProfileManager-CDK/aws/lambda-infrastructure.yml`
 - Deployment Script: `ProfileManager-CDK/scripts/complete-lambda-deployment.ps1`
-- CI/CD Pipeline: `ProfileManager-CDK/.github/workflows/ci-cd-lambda.yml`
+- CI/CD Pipeline: `.github/workflows/ci-cd-lambda.yml`
 - Database Migrations: `ProfileManager-CDK/resources/db/migration/`
 - Application Config: `ProfileManager-CDK/resources/application-lambda.properties`
 
@@ -77,17 +77,239 @@ Complete testing and deploy to production
 **Team**: @team:devops @component:devops-infra @priority:high  
 **Requirements**: All requirements (infrastructure foundation)
 
-**Description**: Deploy the foundational AWS Lambda infrastructure using the existing CloudFormation template and PowerShell deployment script.
+**Description**: Deploy the foundational AWS Lambda infrastructure. This task will guide you through creating all necessary infrastructure files from scratch and deploying them to AWS.
 
-**Infrastructure Files**:
+**Infrastructure Files to Create**:
 - CloudFormation Template: `ProfileManager-CDK/aws/lambda-infrastructure.yml`
 - Deployment Script: `ProfileManager-CDK/scripts/complete-lambda-deployment.ps1`
-- GitHub Actions: `ProfileManager-CDK/.github/workflows/ci-cd-lambda.yml`
+- GitHub Actions Workflow: `.github/workflows/ci-cd-lambda.yml`
+- Application Properties: `ProfileManager-CDK/resources/application-lambda.properties`
 
 **Sub-tasks**:
-- [x] 1.1 Review existing infrastructure template
-  - CloudFormation template includes: VPC, Lambda, API Gateway, RDS PostgreSQL 16.11, Secrets Manager, CloudWatch
-  - Deployment script handles: Maven build, S3 upload, stack creation, Lambda update
+- [ ] 1.0 Create infrastructure files (complete infrastructure as code setup)
+  
+  **IMPORTANT**: This task assumes NO infrastructure files exist. You will create everything from scratch following the detailed specifications below.
+  
+  **1.0.1 Create CloudFormation template**: `ProfileManager-CDK/aws/lambda-infrastructure.yml`
+  - Create directory: `ProfileManager-CDK/aws/`
+  - **Template structure** (600+ lines of YAML):
+    - **Parameters section**: 
+      - EnvironmentName (String, default: production)
+      - DatabaseUsername (String, default: postgres, NoEcho: true)
+      - DatabasePassword (String, MinLength: 8, NoEcho: true)
+      - DeploymentBucketName (String, for S3 bucket)
+    - **VPC Resources**: 
+      - VPC with CIDR 10.0.0.0/16
+      - 2 private subnets (10.0.1.0/24, 10.0.2.0/24) in different AZs
+      - Route tables and associations
+      - Security group for Lambda (allow outbound to RDS)
+      - Security group for RDS (allow inbound from Lambda on port 5432)
+    - **RDS PostgreSQL**: 
+      - Engine: postgres, Version: 16.11
+      - Instance class: db.t3.micro
+      - Allocated storage: 20 GB
+      - DB subnet group with both private subnets
+      - Master username/password from parameters
+      - Backup retention: 7 days
+    - **Lambda Function**: 
+      - Runtime: java17
+      - Handler: `com.myorg.usermanagement.handler.StreamLambdaHandler::handleRequest`
+      - Memory: 2048 MB
+      - Timeout: 30 seconds
+      - VPC configuration: Use private subnets and Lambda security group
+      - Code: S3 bucket and key (user-registration.jar)
+      - Environment variables: SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME, SPRING_PROFILES_ACTIVE
+    - **HTTP API Gateway**: 
+      - Protocol: HTTP
+      - Route: `ANY /{proxy+}` (proxy integration to Lambda)
+      - Route: `ANY /` (root route)
+      - Stage: `${EnvironmentName}` (auto-deploy)
+      - Integration: Lambda proxy with PayloadFormatVersion 2.0
+      - Lambda permission for API Gateway invoke
+    - **Secrets Manager**: 
+      - Secret name: `${EnvironmentName}/lambda/user-registration/secrets`
+      - Secret string with keys: SPRING_DATASOURCE_PASSWORD, EMAIL_USERNAME, EMAIL_PASSWORD, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, AMAZON_CLIENT_ID, AMAZON_CLIENT_SECRET, ENCRYPTION_KEY
+    - **CloudWatch Log Groups**: 
+      - API Gateway log group: `/aws/apigateway/${EnvironmentName}/user-registration`
+      - Lambda log group: `/aws/lambda/${LambdaFunction}`
+      - Retention: 7 days
+    - **IAM Roles**: 
+      - Lambda execution role with managed policies: AWSLambdaVPCAccessExecutionRole, AWSLambdaBasicExecutionRole
+      - Custom policy for Secrets Manager access (secretsmanager:GetSecretValue)
+    - **Outputs**: 
+      - ApiEndpoint, LambdaFunctionArn, DeploymentBucketName, DatabaseEndpoint
+  
+  **1.0.2 Create deployment script**: `ProfileManager-CDK/scripts/complete-lambda-deployment.ps1`
+  - Create directory: `ProfileManager-CDK/scripts/`
+  - **Script structure** (PowerShell, 300+ lines):
+    - **Parameters**: 
+      ```powershell
+      param(
+          [string]$StackName = "user-registration-lambda",
+          [string]$Environment = "production",
+          [string]$Region = "us-east-1"
+      )
+      ```
+    - **Step 1 - Prerequisites check**: 
+      - Check AWS CLI installed: `Get-Command aws`
+      - Check AWS credentials: `aws sts get-caller-identity`
+      - Get AWS account ID for bucket naming
+    - **Step 2 - Configuration prompts**: 
+      - Prompt for stack name (with default)
+      - Prompt for environment name
+      - Prompt for AWS region
+      - Prompt for database username (default: postgres)
+      - Prompt for database password (secure string, min 8 chars)
+    - **Step 3 - Build application**: 
+      - Set Maven path (adjust for your system): `$mvnPath = "C:\Users\CAESAR\Downloads\apache-maven-3.9.12-bin\apache-maven-3.9.12\bin\mvn.cmd"`
+      - Calculate ProfileManager-API directory: `$apiDir = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) "ProfileManager-API"`
+      - Navigate to API directory: `Push-Location $apiDir`
+      - Run Maven build: `& $mvnPath clean package -DskipTests`
+      - Find shaded JAR: `Get-ChildItem -Path "$apiDir\target" -Filter "*-aws.jar"`
+      - Verify build success and JAR exists
+    - **Step 4 - S3 bucket management**: 
+      - Generate bucket name: `$bucketName = "$Environment-lambda-deployments-$accountId"`
+      - Check if bucket exists: `aws s3 ls s3://$bucketName`
+      - Create if not exists: `aws s3 mb s3://$bucketName --region $Region`
+    - **Step 5 - Upload JAR to S3**: 
+      - Upload command: `aws s3 cp $jarFile s3://$bucketName/user-registration.jar`
+      - Verify upload success
+    - **Step 6 - Deploy CloudFormation stack**: 
+      - Get template path: `$templatePath = Join-Path (Split-Path $PSScriptRoot -Parent) "aws\lambda-infrastructure.yml"`
+      - Verify template exists
+      - Deploy command: `aws cloudformation create-stack --stack-name $StackName --template-body file://$templatePath --parameters ParameterKey=EnvironmentName,ParameterValue=$Environment ... --capabilities CAPABILITY_IAM --region $Region`
+      - Wait for completion: `aws cloudformation wait stack-create-complete --stack-name $StackName --region $Region`
+    - **Step 7 - Update Lambda code**: 
+      - Get Lambda function ARN from stack outputs
+      - Extract function name from ARN
+      - Update function code: `aws lambda update-function-code --function-name $functionName --s3-bucket $bucketName --s3-key user-registration.jar`
+      - Wait for update: `aws lambda wait function-updated --function-name $functionName`
+    - **Step 8 - Verification and outputs**: 
+      - Get stack outputs: API endpoint, Lambda ARN, DB endpoint
+      - Display summary with all endpoints and resources
+      - Provide next steps (update secrets, test API)
+    - **Error handling**: Check `$LASTEXITCODE` after each command, exit with error message if non-zero
+  
+  **1.0.3 Create application properties**: `ProfileManager-CDK/resources/application-lambda.properties`
+  - Create directory: `ProfileManager-CDK/resources/`
+  - **Properties content**:
+    ```properties
+    # Database Configuration (from Lambda environment variables)
+    spring.datasource.url=${SPRING_DATASOURCE_URL}
+    spring.datasource.username=${SPRING_DATASOURCE_USERNAME}
+    spring.datasource.password=${SPRING_DATASOURCE_PASSWORD}
+    spring.datasource.driver-class-name=org.postgresql.Driver
+    
+    # Connection Pool
+    spring.datasource.hikari.maximum-pool-size=10
+    spring.datasource.hikari.connection-timeout=5000
+    
+    # Logging
+    logging.level.root=INFO
+    logging.level.com.myorg=DEBUG
+    ```
+  
+  **1.0.4 Create GitHub Actions workflow**: `.github/workflows/ci-cd-lambda.yml`
+  - Create directory: `.github/workflows/` (in repository root)
+  - **Workflow structure** (YAML, 150+ lines):
+    - **Name and triggers**:
+      ```yaml
+      name: CI/CD Pipeline (AWS Lambda)
+      on:
+        push:
+          branches: [main, master]
+        pull_request:
+          branches: [main, master]
+      ```
+    - **Environment variables**:
+      ```yaml
+      env:
+        JAVA_VERSION: '17'
+        MAVEN_OPTS: -Xmx1024m
+        AWS_REGION: us-east-1
+        MAVEN_PATH: ProfileManager-API
+      ```
+    - **Job 1 - build-and-test** (runs on all pushes and PRs):
+      - Checkout code: `actions/checkout@v4`
+      - Setup JDK 17: `actions/setup-java@v4` with distribution: 'temurin', cache: maven
+      - Build: `mvn clean compile -DskipTests` in ProfileManager-API directory
+      - Run tests: `mvn test`
+      - Generate coverage: `mvn jacoco:report` (requires Jacoco plugin in pom.xml)
+      - Upload test results: `actions/upload-artifact@v4` with name: test-results
+      - Upload coverage report: `actions/upload-artifact@v4` with name: coverage-report
+      - Build Lambda JAR (only on main/master branch): `mvn clean package -DskipTests`
+      - Upload JAR artifact (only on main/master branch): `actions/upload-artifact@v4` with name: lambda-jar
+    - **Job 2 - deploy-lambda** (only on push to main/master, depends on build-and-test):
+      - Download JAR artifact: `actions/download-artifact@v4`
+      - Configure AWS credentials: `aws-actions/configure-aws-credentials@v4` using secrets
+      - Determine environment: main → production, master → test (or use TEST_STACK_NAME for main)
+      - Get deployment bucket from CloudFormation outputs
+      - Upload to S3: `aws s3 cp target/*-aws.jar s3://$BUCKET_NAME/user-registration.jar`
+      - Get Lambda function name from CloudFormation outputs
+      - Update Lambda: `aws lambda update-function-code --function-name $FUNCTION_NAME --s3-bucket $BUCKET_NAME --s3-key user-registration.jar`
+      - Wait for update: `aws lambda wait function-updated --function-name $FUNCTION_NAME`
+      - Test deployment: Health check with curl
+      - Display summary: Function name, API endpoint, bucket name, environment
+    - **Required GitHub secrets**: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_ACCOUNT_ID, TEST_STACK_NAME (or PROD_STACK_NAME)
+  
+  **1.0.5 Create additional configuration files**:
+  - `ProfileManager-CDK/resources/application-test.properties` - Override properties for test environment
+  - `ProfileManager-CDK/resources/application.properties` - Default properties (fallback)
+  
+  **1.0.6 Add Jacoco plugin to pom.xml**:
+  - Open `ProfileManager-API/pom.xml`
+  - Add Jacoco Maven plugin in `<build><plugins>` section:
+    ```xml
+    <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.11</version>
+        <executions>
+            <execution>
+                <goals>
+                    <goal>prepare-agent</goal>
+                </goals>
+            </execution>
+            <execution>
+                <id>report</id>
+                <phase>test</phase>
+                <goals>
+                    <goal>report</goal>
+                </goals>
+            </execution>
+        </executions>
+    </plugin>
+    ```
+  
+  **Note**: These instructions provide complete details for creating all infrastructure files from scratch following AWS CloudFormation and PowerShell best practices.
+  
+- [x] 1.1 Review and validate infrastructure files
+  - **Validate CloudFormation template**:
+    - Run: `aws cloudformation validate-template --template-body file://ProfileManager-CDK/aws/lambda-infrastructure.yml`
+    - Check for syntax errors
+    - Verify all required parameters are defined
+    - Verify outputs section includes: LambdaFunctionArn, ApiEndpoint, DatabaseEndpoint
+  - **Validate deployment script**:
+    - Check Maven path is correct for your system
+    - Verify script can find ProfileManager-API directory
+    - Test AWS CLI commands work
+    - Verify S3 bucket naming convention
+  - **Validate application properties**:
+    - Check all required properties are defined
+    - Verify environment variable placeholders (${VAR_NAME})
+    - Ensure no hardcoded credentials
+  - **Validate GitHub Actions workflow**:
+    - Check YAML syntax: Use online YAML validator
+    - Verify job dependencies are correct
+    - Check artifact names match between jobs
+    - Verify AWS CLI commands are correct
+  - **Review infrastructure components**:
+    - VPC: 10.0.0.0/16 with 2 private subnets
+    - RDS: PostgreSQL 16.11, db.t3.micro
+    - Lambda: Java 17, 2048 MB memory, 30s timeout
+    - API Gateway: HTTP API with proxy integration
+    - Secrets Manager: Secret for credentials
+    - CloudWatch: Log groups with 30-day retention
   
 - [x] 1.2 Initial infrastructure deployment (one-time setup)
   - Run `ProfileManager-CDK/scripts/complete-lambda-deployment.ps1`
@@ -95,26 +317,47 @@ Complete testing and deploy to production
   - Script will: build JAR, create S3 bucket, upload code, deploy CloudFormation stack
   - Verify stack creation in AWS Console
   - Note: This takes 10-15 minutes
+  - **Important**: Ensure Maven path is correct in script (default: `C:\Users\CAESAR\Downloads\apache-maven-3.9.12-bin\apache-maven-3.9.12\bin\mvn.cmd`)
+  - **Important**: CloudFormation template path must be relative to script location
+  - **Deployed Resources**: VPC, Lambda, HTTP API Gateway (with proxy integration), RDS PostgreSQL 16.11, Secrets Manager, CloudWatch, S3 bucket
   
 - [x] 1.3 Configure Secrets Manager values
+  - **Create configuration script**: `ProfileManager-CDK/scripts/configure-secrets.ps1`
+  - **Create documentation**: `ProfileManager-CDK/SECRETS_CONFIGURATION.md`
   - Update secrets in AWS Secrets Manager: `{environment}/lambda/user-registration/secrets`
   - Set EMAIL_USERNAME and EMAIL_PASSWORD (for SES)
   - Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
   - Set AMAZON_CLIENT_ID and AMAZON_CLIENT_SECRET
   - Set ENCRYPTION_KEY (base64 encoded 32-byte key)
-  - Use AWS Console or `ProfileManager-CDK/scripts/update-secrets.ps1`
+  - Script supports both interactive and non-interactive modes
   
 - [x] 1.4 Configure AWS SES for email sending
+  - **Create configuration script**: `ProfileManager-CDK/scripts/configure-ses.ps1`
+  - **Create documentation**: `ProfileManager-CDK/SES_CONFIGURATION.md`
   - Verify sender email address in SES console
   - Request production access (move out of sandbox)
   - Test email sending with verification template
   - Configure SES region in Lambda environment variables
+  - Script can verify emails, send test emails, and guide production access request
   
 - [x] 1.5 Set up GitHub Actions for CI/CD (automated deployments)
-  - Configure GitHub secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
-  - Workflow file: `ProfileManager-CDK/.github/workflows/ci-cd-lambda.yml`
+  - **Update existing workflow file**: `.github/workflows/ci-cd-lambda.yml`
+    - Fix paths to work with ProfileManager-API directory structure
+    - Add support for both `main` and `master` branches
+    - Improve environment detection (test vs production)
+    - Auto-detect deployment bucket and Lambda function names from CloudFormation
+    - Add better error handling and logging
+    - Add deployment summary with key information
+    - Upload test results and coverage reports as artifacts
+  - **Create setup script**: `ProfileManager-CDK/scripts/setup-github-secrets.ps1`
+  - **Create documentation**: `ProfileManager-CDK/GITHUB_ACTIONS_SETUP.md`
+  - **Add Jacoco plugin** to `ProfileManager-API/pom.xml` for coverage reports
+  - **Move .github folder** from ProfileManager-CDK/ to repository root
+  - Configure GitHub secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_ACCOUNT_ID, TEST_STACK_NAME
   - Triggers: Push to main branch automatically deploys to Lambda
-  - Pipeline: Build → Test → Upload to S3 → Update Lambda function
+  - Pipeline: Build → Test (with Jacoco coverage) → Upload to S3 → Update Lambda function
+  - **Important**: Workflow uses TEST_STACK_NAME for main branch (not PROD_STACK_NAME)
+  - **Important**: GitHub CLI is optional - script provides manual setup instructions if not installed
   
 - [x] 1.6 Verify infrastructure deployment
   - Test API endpoint: `curl {ApiEndpoint}/actuator/health`
@@ -719,99 +962,13 @@ Complete testing and deploy to production
 
 ---
 
-### Task 12: Configure API Gateway endpoints and integrations
-**Phase**: 2 - Registration & Email Verification  
-**Requirement Types**: FR (Functional Requirement), SR (Security Requirement), PR (Performance Requirement)  
-**Team**: @team:devops @component:devops-infra  
-**Requirements**: All API requirements
-
-**Description**: Configure API Gateway REST API with endpoints, Lambda integrations, and security.
-
-**Sub-tasks**:
-- [ ] 12.1 Create API Gateway REST API resource
-  - **Requirement Type**: PR (Performance Requirement)
-  - **Requirements**: All API requirements
-  - Define API name: "UserAuthRegistrationProfileAPI"
-  - Configure CORS settings (allow origins, methods, headers)
-  - Set up request/response models
-  - Enable CloudWatch logging
-  
-- [ ] 12.2 Create /auth/register endpoint
-  - **Requirement Type**: FR (Functional Requirement) + SR (Security Requirement)
-  - **Requirements**: Req 2 (Email Registration)
-  - Configure POST method
-  - Integrate with RegistrationHandler Lambda function
-  - Set throttling to 5 requests/second per IP (prevent abuse)
-  - No authorization required (public endpoint)
-  - Configure request validation
-  
-- [ ] 12.3 Create /auth/verify-email endpoint
-  - **Requirement Type**: FR (Functional Requirement) + SR (Security Requirement)
-  - **Requirements**: Req 6 (Email Verification)
-  - Configure GET method
-  - Integrate with EmailVerificationHandler Lambda function
-  - Set throttling to 10 requests/second
-  - No authorization required (public endpoint)
-  
-- [ ] 12.4 Create /auth/oauth2/google and /auth/oauth2/amazon endpoints
-  - **Requirement Type**: FR (Functional Requirement) + SR (Security Requirement)
-  - **Requirements**: Req 4 (Social Login Registration)
-  - Configure POST methods for both endpoints
-  - Integrate with OAuth2Handler Lambda function
-  - Set throttling to 10 requests/second
-  - No authorization required (public endpoints)
-  
-- [ ] 12.5 Create /auth/login endpoint
-  - **Requirement Type**: FR (Functional Requirement) + SR (Security Requirement)
-  - **Requirements**: Req 9 (Successful Login), Req 10 (Invalid Credentials)
-  - Configure POST method
-  - Integrate with AuthLoginHandler Lambda function
-  - Set throttling to 10 requests/second per IP (rate limiting per authentication standards)
-  - No authorization required (public endpoint)
-  - Configure request validation
-  
-- [ ] 12.6 Create /auth/logout endpoint
-  - **Requirement Type**: FR (Functional Requirement)
-  - **Requirements**: Req 9 (Successful Login - logout flow)
-  - Configure POST method
-  - Integrate with AuthLogoutHandler Lambda function
-  - Add JWT authorizer (validate token before invoking Lambda)
-  - Set throttling to 100 requests/second
-  
-- [ ] 12.7 Create /profile endpoints
-  - **Requirement Type**: FR (Functional Requirement) + DR (Data Requirement)
-  - **Requirements**: Req 15 (View Profile), Req 16 (Display Fields), Req 23 (Save Profile)
-  - Configure GET method for profile retrieval (integrate with GetProfileHandler)
-  - Configure PUT method for profile update (integrate with UpdateProfileHandler)
-  - Add JWT authorizer to both methods
-  - Set throttling to 100 requests/second for GET, 50 requests/second for PUT
-  
-- [ ] 12.8 Create /profile/email-policy endpoint
-  - **Requirement Type**: BR (Business Rule)
-  - **Requirements**: Req 25 (Read Only Email Rule)
-  - Configure GET method
-  - Integrate with GetEmailPolicyHandler Lambda function
-  - Add JWT authorizer
-  - Set throttling to 100 requests/second
-  
-- [ ] 12.9 Create JWT authorizer for API Gateway
-  - **Requirement Type**: SR (Security Requirement)
-  - **Requirements**: All authenticated endpoints
-  - Configure custom authorizer Lambda (or use Cognito User Pool)
-  - Validate JWT tokens (signature, expiry, claims)
-  - Extract user ID from token claims and pass to Lambda functions
-  - Cache authorization decisions (TTL: 300 seconds)
-  - Return 401 for invalid/expired tokens
-
----
-
-### Task 13: Checkpoint - Backend validation
+### Task 12: Checkpoint - Backend validation
 **Phase**: 4 - Core Authentication  
 **Requirement Types**: All  
 **Team**: @team:backend @team:devops  
 **Requirements**: All backend requirements
 
-**Description**: Validate that all backend Lambda functions and API Gateway are working correctly before proceeding to frontend.
+**Description**: Validate that all backend Lambda functions are working correctly before proceeding to frontend. API Gateway was already deployed via CloudFormation in Task 1.2.
 
 **Validation Steps**:
 - [ ] Test each Lambda function independently with sample events
@@ -829,7 +986,7 @@ Complete testing and deploy to production
 
 ---
 
-### Task 14: Create React project structure and shared services
+### Task 13: Create React project structure and shared services
 **Phase**: 5 - Validation Layer  
 **Requirement Types**: VR (Validation Requirement), FR (Functional Requirement), UI (UI/UX Requirement)  
 **Team**: @team:frontend @component:frontend-ui @priority:high  
@@ -899,7 +1056,7 @@ Complete testing and deploy to production
 
 ---
 
-### Task 15: Implement RegistrationComponent
+### Task 14: Implement RegistrationComponent
 **Phase**: 2 - Registration & Email Verification  
 **Requirement Types**: UI (UI/UX Requirement), FR (Functional Requirement), VR (Validation Requirement), SR (Security Requirement)  
 **Team**: @team:frontend @component:frontend-ui @priority:high  
@@ -909,7 +1066,7 @@ Complete testing and deploy to production
 **Description**: Implement the registration page component with email registration, social login, and password complexity validation, matching Figma designs pixel-perfect.
 
 **Sub-tasks**:
-- [ ] 15.1 Create component structure and template
+- [ ] 14.1 Create component structure and template
   - **Requirement Type**: UI (UI/UX Requirement)
   - **Requirements**: Req 1 (Registration Page Access), Req 2 (Email Registration), Req 4 (Social Login)
   - Create RegistrationComponent with TypeScript class and HTML template
@@ -922,7 +1079,7 @@ Complete testing and deploy to production
   - Implement responsive layout for Mobile (375px), Tablet (768px), Desktop (1440px)
   - Extract exact colors, spacing, typography from Figma Inspect
   
-- [ ] 15.2 Implement password requirements display
+- [ ] 14.2 Implement password requirements display
   - **Requirement Type**: SR (Security Requirement) + VR (Validation Requirement)
   - **Requirements**: Req 3 (Registration Password Complexity)
   - Display password complexity requirements in real-time
@@ -931,7 +1088,7 @@ Complete testing and deploy to production
   - Requirements: min 8 chars, uppercase, lowercase, digit, special char
   - Update display as user types
   
-- [ ] 15.3 Implement form validation logic
+- [ ] 14.3 Implement form validation logic
   - **Requirement Type**: VR (Validation Requirement) + SR (Security Requirement)
   - **Requirements**: Req 3 (Password Complexity), Req 7 (Email Format)
   - Add reactive form with useState
@@ -941,7 +1098,7 @@ Complete testing and deploy to production
   - Display inline error messages below fields matching Figma error states
   - Clear error messages when user corrects input
   
-- [ ] 15.4 Implement email registration submission logic
+- [ ] 14.4 Implement email registration submission logic
   - **Requirement Type**: FR (Functional Requirement) + SR (Security Requirement)
   - **Requirements**: Req 2 (Email Registration), Req 5 (Duplicate Account Prevention)
   - Call AuthService.register on form submit
@@ -951,7 +1108,7 @@ Complete testing and deploy to production
   - Show loading indicator during API call (spinner in button)
   - Disable form during submission to prevent double-submit
   
-- [ ] 15.5 Implement social login functionality
+- [ ] 14.5 Implement social login functionality
   - **Requirement Type**: FR (Functional Requirement) + SR (Security Requirement)
   - **Requirements**: Req 4 (Social Login Registration)
   - Call OAuth2Service.initiateGoogleLogin on Google button click
@@ -960,7 +1117,7 @@ Complete testing and deploy to production
   - Redirect to home page after successful social login
   - Handle OAuth2 errors
   
-- [ ]* 15.6 Write unit tests for RegistrationComponent
+- [ ]* 14.6 Write unit tests for RegistrationComponent
   - **Requirement Type**: UI (UI/UX Requirement) + FR (Functional Requirement) + VR (Validation Requirement)
   - **Requirements**: Req 1, Req 2, Req 3, Req 4, Req 7
   - Test form validation (email format, password complexity, password match)
@@ -973,7 +1130,7 @@ Complete testing and deploy to production
 
 ---
 
-### Task 16: Implement LoginComponent
+### Task 15: Implement LoginComponent
 **Phase**: 4 - Core Authentication  
 **Requirement Types**: UI (UI/UX Requirement), FR (Functional Requirement), VR (Validation Requirement), SR (Security Requirement)  
 **Team**: @team:frontend @component:frontend-ui @priority:high  
@@ -1037,7 +1194,7 @@ Complete testing and deploy to production
 
 ---
 
-### Task 17: Implement ProfileComponent
+### Task 16: Implement ProfileComponent
 **Phase**: 6 - Profile Management  
 **Requirement Types**: UI (UI/UX Requirement), VR (Validation Requirement), FR (Functional Requirement), BR (Business Rule), DR (Data Requirement)  
 **Team**: @team:frontend @component:frontend-ui @priority:high  
@@ -1130,7 +1287,7 @@ Complete testing and deploy to production
 
 ---
 
-### Task 18: Configure routing and navigation
+### Task 17: Configure routing and navigation
 **Phase**: 4 - Core Authentication  
 **Requirement Types**: UI (UI/UX Requirement), FR (Functional Requirement), SR (Security Requirement)  
 **Team**: @team:frontend @component:frontend-routing  
@@ -1168,38 +1325,18 @@ Complete testing and deploy to production
 
 ---
 
-### Task 19: Configure deployment pipeline
+### Task 18: Configure deployment pipeline
 **Phase**: 7 - Testing & Deployment  
 **Requirement Types**: PR (Performance Requirement)  
 **Team**: @team:devops @component:devops-cicd  
 **Requirements**: All requirements (deployment and monitoring)
 
-**Description**: Configure and validate the CI/CD pipeline for automated build, test, and deployment using existing GitHub Actions workflows.
+**Description**: Complete frontend deployment configuration and monitoring setup. Backend Lambda deployment pipeline is already configured and working (completed in Task 1.5).
 
-**Pipeline Files**:
-- Lambda Pipeline: `ProfileManager-CDK/.github/workflows/ci-cd-lambda.yml`
-- Setup Workflow: `ProfileManager-CDK/.github/workflows/setup-infrastructure.yml`
+**Note**: GitHub Actions secrets and Lambda deployment pipeline were configured in Task 1.5 and verified in Task 1.6.
 
 **Sub-tasks**:
-- [ ] 19.1 Configure GitHub Actions secrets
-  - **Requirement Type**: PR (Performance Requirement)
-  - **Requirements**: All requirements (deployment)
-  - Add AWS_ACCESS_KEY_ID to GitHub repository secrets
-  - Add AWS_SECRET_ACCESS_KEY to GitHub repository secrets
-  - Verify secrets are accessible in workflow runs
-  - Use `ProfileManager-CDK/scripts/setup-github-secrets.ps1` for guidance
-  
-- [ ] 19.2 Configure Lambda deployment pipeline
-  - **Requirement Type**: PR (Performance Requirement)
-  - **Requirements**: All backend requirements
-  - Pipeline file: `ProfileManager-CDK/.github/workflows/ci-cd-lambda.yml`
-  - Triggers: Push to main branch, Pull requests to main
-  - Build steps: Maven clean package, Run unit tests, Run integration tests, Generate coverage report
-  - Deploy steps: Upload JAR to S3, Update Lambda function code
-  - Verify pipeline runs successfully on push to main
-  - Monitor CloudWatch logs after deployment
-  
-- [ ] 19.3 Configure frontend deployment (if separate from Lambda)
+- [ ] 18.1 Configure frontend deployment
   - **Requirement Type**: PR (Performance Requirement)
   - **Requirements**: All frontend requirements
   - Build React application for production (npm run build)
@@ -1207,8 +1344,9 @@ Complete testing and deploy to production
   - Configure CloudFront distribution for CDN (optional)
   - Configure environment-specific API Gateway URLs in .env files
   - Invalidate CloudFront cache after deployment (if using CloudFront)
+  - Create GitHub Actions workflow for frontend deployment
   
-- [ ] 19.4 Set up monitoring and alerts
+- [ ] 18.2 Set up monitoring and alerts
   - **Requirement Type**: PR (Performance Requirement)
   - **Requirements**: All requirements (monitoring)
   - Configure CloudWatch alarms for Lambda errors (threshold: > 5 errors in 5 minutes)
@@ -1217,12 +1355,12 @@ Complete testing and deploy to production
   - Monitor SES email delivery metrics
   - Create CloudWatch dashboard for system health
   - Set up SNS notifications for critical alerts
-  - Configure log retention policies (30 days) - already set in CloudFormation template
+  - Note: Log retention policies (30 days) already configured in CloudFormation template
   - Use `ProfileManager-CDK/scripts/check-lambda-logs.ps1` for log monitoring
 
 ---
 
-### Task 20: Integration testing and validation
+### Task 19: Integration testing and validation
 **Phase**: 7 - Testing & Deployment  
 **Requirement Types**: All requirement types  
 **Team**: @team:qa @component:qa-testing  
@@ -1300,7 +1438,7 @@ Complete testing and deploy to production
 
 ---
 
-### Task 21: Final checkpoint - Production readiness validation
+### Task 20: Final checkpoint - Production readiness validation
 **Phase**: 7 - Testing & Deployment  
 **Requirement Types**: All requirement types  
 **Team**: @team:backend @team:frontend @team:devops @team:qa  
@@ -1337,41 +1475,41 @@ This section provides a comprehensive mapping of requirement types to the tasks 
 
 | Requirement | Description | Implementing Tasks |
 |-------------|-------------|-------------------|
-| Req 2 | Email Registration | Task 3.3 (JWT utility), Task 4.1 (UserRepository), Task 5 (RegistrationHandler), Task 12.2 (API Gateway), Task 14.3 (AuthService), Task 15 (RegistrationComponent), Task 18.1 (Routing) |
-| Req 4 | Social Login Registration | Task 3.5 (OAuth2 utility), Task 4.1 (UserRepository), Task 7 (OAuth2Handler), Task 12.4 (API Gateway), Task 14.4 (OAuth2Service), Task 15.5 (RegistrationComponent) |
-| Req 6 | Email Verification | Task 3.6 (Email service), Task 4.1 (UserRepository), Task 5.5 (Send email), Task 6 (EmailVerificationHandler), Task 12.3 (API Gateway) |
-| Req 9 | Successful Login | Task 3.3 (JWT utility), Task 4.1 (UserRepository), Task 8 (AuthLoginHandler), Task 11.1 (AuthLogoutHandler), Task 12.5-12.6 (API Gateway), Task 14.3 (AuthService), Task 16 (LoginComponent), Task 18 (Routing) |
-| Req 10 | Invalid Credentials | Task 3.10 (Exceptions), Task 4.1 (UserRepository), Task 8 (AuthLoginHandler), Task 12.5 (API Gateway), Task 14.3 (AuthService), Task 16 (LoginComponent) |
-| Req 23 | Save Profile | Task 4.1 (UserRepository), Task 10 (UpdateProfileHandler), Task 12.7 (API Gateway), Task 14.5 (ProfileService), Task 17 (ProfileComponent) |
-| Req 24 | Cancel Changes | Task 17.5 (ProfileComponent cancel functionality) |
+| Req 2 | Email Registration | Task 3.3 (JWT utility), Task 4.1 (UserRepository), Task 5 (RegistrationHandler), Task 13.3 (AuthService), Task 14 (RegistrationComponent), Task 17.1 (Routing) |
+| Req 4 | Social Login Registration | Task 3.5 (OAuth2 utility), Task 4.1 (UserRepository), Task 7 (OAuth2Handler), Task 13.4 (OAuth2Service), Task 14.5 (RegistrationComponent) |
+| Req 6 | Email Verification | Task 3.6 (Email service), Task 4.1 (UserRepository), Task 5.5 (Send email), Task 6 (EmailVerificationHandler) |
+| Req 9 | Successful Login | Task 3.3 (JWT utility), Task 4.1 (UserRepository), Task 8 (AuthLoginHandler), Task 11.1 (AuthLogoutHandler), Task 13.3 (AuthService), Task 15 (LoginComponent), Task 17 (Routing) |
+| Req 10 | Invalid Credentials | Task 3.10 (Exceptions), Task 4.1 (UserRepository), Task 8 (AuthLoginHandler), Task 13.3 (AuthService), Task 15 (LoginComponent) |
+| Req 23 | Save Profile | Task 4.1 (UserRepository), Task 10 (UpdateProfileHandler), Task 13.5 (ProfileService), Task 16 (ProfileComponent) |
+| Req 24 | Cancel Changes | Task 16.5 (ProfileComponent cancel functionality) |
 
 ### UI/UX Requirements (UI) - User interface and experience
 
 | Requirement | Description | Implementing Tasks | Figma Reference |
 |-------------|-------------|-------------------|-----------------|
-| Req 1 | Registration Page Access | Task 15.1 (RegistrationComponent structure), Task 18.1 (Routing) | Registration Page - Desktop/Mobile/Tablet |
-| Req 8 | Login Page Access | Task 16.1 (LoginComponent structure), Task 18.1 (Routing) | Login Page - Desktop/Mobile/Tablet |
-| Req 15 | View Profile Page | Task 9 (GetProfileHandler), Task 17.1-17.2 (ProfileComponent), Task 18.1 (Routing) | Profile Management Page |
-| Req 16 | Display Profile Fields | Task 2.1-2.2 (Database schema), Task 9 (GetProfileHandler), Task 17.1 (ProfileComponent) | Profile - Form Fields |
-| Req 18 | Title Field Behavior | Task 2.1 (Database), Task 17.1 (ProfileComponent) | Profile - Title dropdown |
-| Req 19 | Gender Field Validation | Task 2.1 (Database), Task 10.2 (Validation), Task 17.1-17.3 (ProfileComponent) | Profile - Gender radio buttons |
-| Req 22 | Preferences Selection | Task 2.2 (Database), Task 10.2 (Validation), Task 17.1-17.3 (ProfileComponent) | Profile - Preferences checkboxes |
-| Req 25 | Read Only Email Rule | Task 11.2 (GetEmailPolicyHandler), Task 12.8 (API Gateway), Task 14.5 (ProfileService), Task 17.2 (ProfileComponent) | Profile - Email read-only state |
+| Req 1 | Registration Page Access | Task 14.1 (RegistrationComponent structure), Task 17.1 (Routing) | Registration Page - Desktop/Mobile/Tablet |
+| Req 8 | Login Page Access | Task 15.1 (LoginComponent structure), Task 17.1 (Routing) | Login Page - Desktop/Mobile/Tablet |
+| Req 15 | View Profile Page | Task 9 (GetProfileHandler), Task 16.1-16.2 (ProfileComponent), Task 17.1 (Routing) | Profile Management Page |
+| Req 16 | Display Profile Fields | Task 2.1-2.2 (Database schema), Task 9 (GetProfileHandler), Task 16.1 (ProfileComponent) | Profile - Form Fields |
+| Req 18 | Title Field Behavior | Task 2.1 (Database), Task 16.1 (ProfileComponent) | Profile - Title dropdown |
+| Req 19 | Gender Field Validation | Task 2.1 (Database), Task 10.2 (Validation), Task 16.1-16.3 (ProfileComponent) | Profile - Gender radio buttons |
+| Req 22 | Preferences Selection | Task 2.2 (Database), Task 10.2 (Validation), Task 16.1-16.3 (ProfileComponent) | Profile - Preferences checkboxes |
+| Req 25 | Read Only Email Rule | Task 11.2 (GetEmailPolicyHandler), Task 13.5 (ProfileService), Task 16.2 (ProfileComponent) | Profile - Email read-only state |
 
 ### Validation Requirements (VR) - Input validation and data integrity
 
 | Requirement | Description | Implementing Tasks | Property Tests |
 |-------------|-------------|-------------------|----------------|
-| Req 3 | Registration Password Complexity | Task 3.2 (BCrypt), Task 3.4 (Validators), Task 5.2 (RegistrationHandler), Task 14.2 (ValidationService), Task 15.2-15.3 (RegistrationComponent) | Task 3.8 (Property 2) |
-| Req 7 | Registration Email Format Validation | Task 3.4 (Validators), Task 5.2 (RegistrationHandler), Task 14.2 (ValidationService), Task 15.3 (RegistrationComponent) | Task 3.7 (Property 4) |
-| Req 11 | Mandatory Fields Validation | Task 3.4 (Validators), Task 14.2 (ValidationService), Task 16.2 (LoginComponent) | Task 16.4 (Property 7) |
-| Req 12 | Password Format Validation | Task 3.2 (BCrypt), Task 3.4 (Validators), Task 14.2 (ValidationService), Task 16.2 (LoginComponent) | Task 3.8 (Property 2) |
-| Req 13 | Email Format Validation | Task 3.4 (Validators), Task 14.2 (ValidationService), Task 16.2 (LoginComponent) | Task 3.7 (Property 4) |
-| Req 17 | Mandatory Profile Fields | Task 3.4 (Validators), Task 10.2 (UpdateProfileHandler), Task 17.3 (ProfileComponent) | Task 10.4 (Property 11) |
-| Req 19 | Gender Field Validation | Task 10.2 (UpdateProfileHandler), Task 17.3 (ProfileComponent) | Task 10.4 (Property 11) |
-| Req 20 | Age Validation | Task 3.4 (Validators), Task 10.2 (UpdateProfileHandler), Task 17.3 (ProfileComponent) | Task 3.9 (Property 12) |
-| Req 21 | Email Validation in Profile | Task 3.4 (Validators), Task 10.2 (UpdateProfileHandler), Task 17.3 (ProfileComponent) | Task 3.7 (Property 4) |
-| Req 22 | Preferences Selection | Task 3.4 (Validators), Task 10.2 (UpdateProfileHandler), Task 17.3 (ProfileComponent) | Task 10.5 (Property 14) |
+| Req 3 | Registration Password Complexity | Task 3.2 (BCrypt), Task 3.4 (Validators), Task 5.2 (RegistrationHandler), Task 13.2 (ValidationService), Task 14.2-14.3 (RegistrationComponent) | Task 3.8 (Property 2) |
+| Req 7 | Registration Email Format Validation | Task 3.4 (Validators), Task 5.2 (RegistrationHandler), Task 13.2 (ValidationService), Task 14.3 (RegistrationComponent) | Task 3.7 (Property 4) |
+| Req 11 | Mandatory Fields Validation | Task 3.4 (Validators), Task 13.2 (ValidationService), Task 15.2 (LoginComponent) | Task 15.4 (Property 7) |
+| Req 12 | Password Format Validation | Task 3.2 (BCrypt), Task 3.4 (Validators), Task 13.2 (ValidationService), Task 15.2 (LoginComponent) | Task 3.8 (Property 2) |
+| Req 13 | Email Format Validation | Task 3.4 (Validators), Task 13.2 (ValidationService), Task 15.2 (LoginComponent) | Task 3.7 (Property 4) |
+| Req 17 | Mandatory Profile Fields | Task 3.4 (Validators), Task 10.2 (UpdateProfileHandler), Task 16.3 (ProfileComponent) | Task 10.4 (Property 11) |
+| Req 19 | Gender Field Validation | Task 10.2 (UpdateProfileHandler), Task 16.3 (ProfileComponent) | Task 10.4 (Property 11) |
+| Req 20 | Age Validation | Task 3.4 (Validators), Task 10.2 (UpdateProfileHandler), Task 16.3 (ProfileComponent) | Task 3.9 (Property 12) |
+| Req 21 | Email Validation in Profile | Task 3.4 (Validators), Task 10.2 (UpdateProfileHandler), Task 16.3 (ProfileComponent) | Task 3.7 (Property 4) |
+| Req 22 | Preferences Selection | Task 3.4 (Validators), Task 10.2 (UpdateProfileHandler), Task 16.3 (ProfileComponent) | Task 10.5 (Property 14) |
 
 ### Security Requirements (SR) - Authentication and security controls
 
@@ -1386,12 +1524,12 @@ This section provides a comprehensive mapping of requirement types to the tasks 
 | Req 14 | Account Locking | Task 2.3 (login_attempts table), Task 4.2 (LoginAttemptRepository), Task 8.3 (AuthLoginHandler) | Lock after 5 failures for 30 minutes |
 
 **Additional Security Measures**:
-- JWT token authentication (Task 3.3, 12.9)
-- API Gateway rate limiting (Task 12.2: 5 req/s for registration, Task 12.5: 10 req/s for login)
-- HTTPS enforcement (Task 12.1)
+- JWT token authentication (Task 3.3)
+- API Gateway rate limiting (configured in CloudFormation template)
+- HTTPS enforcement (configured in CloudFormation template)
 - SQL injection prevention with parameterized queries (Task 4.1, 4.2)
-- XSS prevention with React sanitization (Task 14.1)
-- CSRF protection (Task 12.1)
+- XSS prevention with React sanitization (Task 13.1)
+- CSRF protection (configured in CloudFormation template)
 - Secrets Manager for credentials (Task 1.4, 3.1)
 - CloudWatch logging for security events (Task 1.6, 5.4, 6.2, 7.4, 8.3)
 
@@ -1422,7 +1560,7 @@ This section provides a comprehensive mapping of requirement types to the tasks 
 
 | Requirement | Description | Implementing Tasks | Performance Targets |
 |-------------|-------------|-------------------|---------------------|
-| Infrastructure | Scalability and performance | Task 1 (AWS infrastructure), Task 12 (API Gateway), Task 19 (Deployment) | Lambda cold start < 3s, API response < 500ms p95, Page load < 2s, Email delivery < 5s |
+| Infrastructure | Scalability and performance | Task 1 (AWS infrastructure), Task 18 (Deployment) | Lambda cold start < 3s, API response < 500ms p95, Page load < 2s, Email delivery < 5s |
 
 ---
 
@@ -1438,7 +1576,7 @@ All property-based tests validate universal correctness properties across random
 | Property 4 | Email format validation during registration | Req 7 (Registration Email Format) | Task 3.7 |
 | Property 5 | Valid credentials authenticate successfully | Req 9 (Successful Login) | Task 8.5 |
 | Property 6 | Invalid credentials return error message | Req 10 (Invalid Credentials) | Task 8.6 |
-| Property 7 | Login button disabled state | Req 11 (Mandatory Fields) | Task 16.4 |
+| Property 7 | Login button disabled state | Req 11 (Mandatory Fields) | Task 15.4 |
 | Property 8 | Password complexity validation during login | Req 12 (Password Format) | Task 3.8 |
 | Property 9 | Email format validation during login | Req 13 (Email Format) | Task 3.7 |
 | Property 10 | Account locking after failed attempts | Req 14 (Account Locking) | Task 8.7 |
@@ -1447,7 +1585,7 @@ All property-based tests validate universal correctness properties across random
 | Property 13 | Email format validation in profile | Req 21 (Email in Profile) | Task 3.7 |
 | Property 14 | Preferences selection validation | Req 22 (Preferences) | Task 10.5 |
 | Property 15 | Profile save round-trip with success message | Req 23 (Save Profile) | Task 10.6 |
-| Property 16 | Cancel discards changes | Req 24 (Cancel Changes) | Task 17.6 |
+| Property 16 | Cancel discards changes | Req 24 (Cancel Changes) | Task 16.6 |
 
 ---
 
@@ -1462,28 +1600,26 @@ All property-based tests validate universal correctness properties across random
 4. Task 4: Repository classes (depends on Task 2, 3)
 
 ### Phase 2: Registration & Email Verification (Week 2)
-**Critical Path**: Task 5 → Task 6 → Task 12 → Task 13
+**Critical Path**: Task 5 → Task 6 → Task 12 (Backend checkpoint)
 
 5. Task 5: RegistrationHandler (depends on Task 3, 4)
 6. Task 6: EmailVerificationHandler (depends on Task 3, 4)
-7. Task 12: API Gateway (depends on Task 5, 6, 7, 8, 11)
-8. Task 13: Backend checkpoint (depends on Task 5, 6, 12)
+7. Task 12: Backend checkpoint (depends on Task 5, 6)
 
 ### Phase 3: Social Login Integration (Week 3)
-**Critical Path**: Task 7 → Task 12
+**Critical Path**: Task 7 → Task 12 (Backend checkpoint)
 
-9. Task 7: OAuth2Handler (depends on Task 3, 4)
-10. Task 12: API Gateway OAuth2 endpoints (depends on Task 7)
+8. Task 7: OAuth2Handler (depends on Task 3, 4)
+9. Task 12: Backend checkpoint (depends on Task 7)
 
 ### Phase 4: Core Authentication (Week 4)
-**Critical Path**: Task 8 → Task 12 → Task 13 → Task 14 → Task 16 → Task 18
+**Critical Path**: Task 8 → Task 12 → Task 13 → Task 15 → Task 17
 
-11. Task 8: AuthLoginHandler (depends on Task 3, 4)
-12. Task 12: API Gateway login endpoints (depends on Task 8)
-13. Task 13: Backend checkpoint (depends on Task 8, 12)
-14. Task 14: React services (depends on Task 13)
-15. Task 16: LoginComponent (depends on Task 14)
-16. Task 18: Routing (depends on Task 15, 16)
+10. Task 8: AuthLoginHandler (depends on Task 3, 4)
+11. Task 12: Backend checkpoint (depends on Task 8)
+12. Task 13: React services (depends on Task 12)
+13. Task 15: LoginComponent (depends on Task 13)
+14. Task 17: Routing (depends on Task 14, 15)
 
 ### Phase 5: Validation Layer (Week 5)
 **Parallel Execution**: Task 3.4-3.9 (validation utilities and property tests)
@@ -1492,19 +1628,19 @@ All property-based tests validate universal correctness properties across random
 - Property tests validate validation logic
 
 ### Phase 6: Profile Management (Week 6)
-**Critical Path**: Task 9 → Task 10 → Task 11 → Task 17
+**Critical Path**: Task 9 → Task 10 → Task 11 → Task 16
 
 17. Task 9: GetProfileHandler (depends on Task 4)
 18. Task 10: UpdateProfileHandler (depends on Task 3, 4)
 19. Task 11: Supporting functions (depends on Task 3)
-20. Task 17: ProfileComponent (depends on Task 9, 10, 11, 14)
+20. Task 16: ProfileComponent (depends on Task 9, 10, 11, 13)
 
 ### Phase 7: Testing & Deployment (Week 7)
-**Critical Path**: Task 19 → Task 20 → Task 21
+**Critical Path**: Task 18 → Task 19 → Task 20
 
-21. Task 19: Deployment pipeline (depends on all implementation tasks)
-22. Task 20: Integration testing (depends on Task 19)
-23. Task 21: Final checkpoint (depends on Task 20)
+21. Task 18: Deployment pipeline (depends on all implementation tasks)
+22. Task 19: Integration testing (depends on Task 18)
+23. Task 20: Final checkpoint (depends on Task 19)
 
 ---
 
