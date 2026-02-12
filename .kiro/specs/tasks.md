@@ -60,7 +60,7 @@ Complete testing and deploy to production
 **Description**: Create the foundational AWS infrastructure for the application using Infrastructure as Code (AWS CDK).
 
 **Sub-tasks**:
-- [ ] 1.1 Create CDK project structure for infrastructure as code
+- [x] 1.1 Create CDK project structure for infrastructure as code
   - Initialize CDK project with TypeScript
   - Define stack structure for dev, staging, prod environments
   

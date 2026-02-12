@@ -1,0 +1,35 @@
+# Backend (ProfileManager-API)
+ProfileManager-API/target/
+ProfileManager-API/.mvn/
+ProfileManager-API/mvnw
+ProfileManager-API/mvnw.cmd
+
+# Frontend (ProfileManager-UI)
+ProfileManager-UI/node_modules/
+ProfileManager-UI/build/
+ProfileManager-UI/.env
+ProfileManager-UI/.env.local
+
+# Infrastructure (ProfileManager-CDK)
+ProfileManager-CDK/node_modules/
+ProfileManager-CDK/cdk.out/
+ProfileManager-CDK/*.js
+ProfileManager-CDK/*.d.ts
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test
+coverage/
+*.test.js
