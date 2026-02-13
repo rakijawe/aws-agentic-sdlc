@@ -18,16 +18,32 @@ This implementation plan breaks down the user authentication, registration, and 
 
 ## Deployment Strategy
 
+**IMPORTANT - Task Execution Order**:
+This project follows an infrastructure-first approach with placeholder code:
+1. **Phase 1 (Task 1)**: Set up infrastructure with placeholder Lambda handler
+2. **Phase 2 (Tasks 2-4)**: Build database schema and utility classes
+3. **Phase 3 (Tasks 5-11)**: Implement real Lambda handlers (replaces placeholder)
+4. **Continuous**: GitHub Actions automatically deploys code changes to Lambda
+
+**Why this order?**
+- Infrastructure can be tested independently before writing complex code
+- GitHub Actions works from day 1 with placeholder code
+- Real handlers are deployed incrementally via CI/CD pipeline
+- Reduces risk by separating infrastructure issues from code issues
+
 **Infrastructure Setup (One-Time)**:
 - Create and run deployment script: `ProfileManager-CDK/scripts/complete-lambda-deployment.ps1`
 - Uses CloudFormation template: `ProfileManager-CDK/aws/lambda-infrastructure.yml`
 - Creates: VPC, Lambda, API Gateway, RDS PostgreSQL, Secrets Manager, CloudWatch
+- **Deploys with**: Placeholder Lambda handler (Task 1.0.7) that returns success message
 
 **Continuous Deployment (Automated)**:
 - GitHub Actions workflow: `.github/workflows/ci-cd-lambda.yml`
 - Triggers: Push to main branch or PR merge
 - Pipeline: Build → Test → Upload to S3 → Update Lambda function
 - No infrastructure changes on each deployment, only Lambda code updates
+- **Initially deploys**: Placeholder handler
+- **Later deploys**: Real handlers from Tasks 5-11
 
 **Key Files to Create**:
 - Infrastructure: `ProfileManager-CDK/aws/lambda-infrastructure.yml`
@@ -282,6 +298,51 @@ Complete testing and deploy to production
     ```
   
   **Note**: These instructions provide complete details for creating all infrastructure files from scratch following AWS CloudFormation and PowerShell best practices.
+
+- [ ] 1.0.7 Create minimal placeholder Lambda handler (CRITICAL - DO THIS BEFORE DEPLOYMENT)
+  - **Purpose**: Provide a working Lambda function for initial infrastructure deployment
+  - **Why**: Infrastructure deployment (Task 1.2) requires a JAR file to deploy. Real Lambda handlers are created in Tasks 5-11, so we need a placeholder first.
+  - **Location**: `ProfileManager-API/src/main/java/com/myorg/usermanagement/handler/StreamLambdaHandler.java`
+  - **Implementation**:
+    ```java
+    package com.myorg.usermanagement.handler;
+    
+    import com.amazonaws.services.lambda.runtime.Context;
+    import com.amazonaws.services.lambda.runtime.RequestHandler;
+    import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
+    import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
+    import java.util.HashMap;
+    import java.util.Map;
+    
+    public class StreamLambdaHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
+        @Override
+        public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent input, Context context) {
+            context.getLogger().log("Placeholder handler invoked - Path: " + input.getPath());
+            
+            APIGatewayProxyResponseEvent response = new APIGatewayProxyResponseEvent();
+            response.setStatusCode(200);
+            
+            Map<String, String> headers = new HashMap<>();
+            headers.put("Content-Type", "application/json");
+            response.setHeaders(headers);
+            
+            String body = String.format(
+                "{\"message\": \"Infrastructure deployed successfully\", " +
+                "\"status\": \"placeholder\", " +
+                "\"path\": \"%s\", " +
+                "\"note\": \"Real handlers will be deployed in subsequent tasks\"}",
+                input.getPath()
+            );
+            response.setBody(body);
+            
+            return response;
+        }
+    }
+    ```
+  - **Verify build**: Run `mvn clean package` in ProfileManager-API directory to ensure JAR is created successfully
+  - **Test locally**: Verify the handler compiles without errors
+  - **Note**: This placeholder will be replaced/extended when implementing real handlers in Tasks 5-11
+  - **Important**: Without this placeholder, Task 1.2 (infrastructure deployment) will fail because there's no code to build and deploy
   
 - [x] 1.1 Review and validate infrastructure files
   - **Validate CloudFormation template**:
@@ -311,15 +372,18 @@ Complete testing and deploy to production
     - Secrets Manager: Secret for credentials
     - CloudWatch: Log groups with 30-day retention
   
-- [x] 1.2 Initial infrastructure deployment (one-time setup)
+- [ ] 1.2 Initial infrastructure deployment with placeholder code (one-time setup)
+  - **Prerequisites**: Task 1.0.7 MUST be completed first (placeholder handler must exist)
   - Run `ProfileManager-CDK/scripts/complete-lambda-deployment.ps1`
   - Provide parameters: stack name, environment, region, DB credentials
-  - Script will: build JAR, create S3 bucket, upload code, deploy CloudFormation stack
+  - Script will: build placeholder JAR, create S3 bucket, upload code, deploy CloudFormation stack
   - Verify stack creation in AWS Console
   - Note: This takes 10-15 minutes
   - **Important**: Ensure Maven path is correct in script (default: `C:\Users\CAESAR\Downloads\apache-maven-3.9.12-bin\apache-maven-3.9.12\bin\mvn.cmd`)
   - **Important**: CloudFormation template path must be relative to script location
-  - **Deployed Resources**: VPC, Lambda, HTTP API Gateway (with proxy integration), RDS PostgreSQL 16.11, Secrets Manager, CloudWatch, S3 bucket
+  - **Deployed Resources**: VPC, Lambda (with placeholder handler), HTTP API Gateway (with proxy integration), RDS PostgreSQL 16.11, Secrets Manager, CloudWatch, S3 bucket
+  - **Verify deployment**: Test API endpoint with `curl {ApiEndpoint}` - should return placeholder message
+  - **Note**: This deploys infrastructure with a placeholder Lambda handler. Real handlers will be deployed in Tasks 5-11 via GitHub Actions
   
 - [x] 1.3 Configure Secrets Manager values
   - **Create configuration script**: `ProfileManager-CDK/scripts/configure-secrets.ps1`
@@ -358,13 +422,19 @@ Complete testing and deploy to production
   - Pipeline: Build → Test (with Jacoco coverage) → Upload to S3 → Update Lambda function
   - **Important**: Workflow uses TEST_STACK_NAME for main branch (not PROD_STACK_NAME)
   - **Important**: GitHub CLI is optional - script provides manual setup instructions if not installed
+  - **Note**: Initial GitHub Actions runs will deploy the placeholder handler from Task 1.0.7
+  - **Note**: Once real handlers are implemented (Tasks 5-11), GitHub Actions will automatically deploy them on push to main
+  - **Test the workflow**: Make a small change to the placeholder handler and push to main to verify CI/CD works
   
 - [x] 1.6 Verify infrastructure deployment
-  - Test API endpoint: `curl {ApiEndpoint}/actuator/health`
-  - Check CloudWatch logs: `/aws/lambda/{FunctionName}`
-  - Verify RDS database connectivity
-  - Test Lambda function invocation
+  - Test API endpoint: `curl {ApiEndpoint}` should return placeholder message with status 200
+  - Expected response: `{"message": "Infrastructure deployed successfully", "status": "placeholder", ...}`
+  - Check CloudWatch logs: `/aws/lambda/{FunctionName}` - should show placeholder handler invocations
+  - Verify RDS database connectivity (can connect from Lambda VPC)
+  - Test Lambda function invocation directly via AWS Console
   - Review CloudFormation stack outputs (API endpoint, DB endpoint, Lambda ARN)
+  - **Note**: At this point, infrastructure is fully deployed and working with placeholder code
+  - **Next steps**: Proceed with Tasks 2-4 (database and utilities), then Tasks 5-11 (real Lambda handlers)
 
 ---
 
@@ -576,10 +646,18 @@ Complete testing and deploy to production
 - [ ] 5.1 Create Lambda handler class and request parsing
   - **Requirement Type**: FR (Functional Requirement)
   - **Requirements**: Req 2 (Email Registration)
+  - **Note**: This task extends/replaces the placeholder handler created in Task 1.0.7
+  - **Implementation approach**: Update StreamLambdaHandler to route requests to RegistrationHandler based on path
   - Create RegistrationHandler class extending RequestHandler
   - Parse APIGatewayProxyRequestEvent to extract email and password
   - Set up CloudWatch logging with SLF4J
   - Validate request body format
+  - **Routing logic**: StreamLambdaHandler should check request path and delegate to appropriate handler
+  - **Example routing**: 
+    - `/register` → RegistrationHandler
+    - `/login` → AuthLoginHandler (Task 8)
+    - `/verify` → EmailVerificationHandler (Task 6)
+    - etc.
   
 - [ ] 5.2 Implement registration validation logic
   - **Requirement Type**: VR (Validation Requirement) + SR (Security Requirement)
